@@ -2,78 +2,115 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tính ngày lùi hàng</title>
 <style>
-body { font-family: Arial; background:#f5f6fa; padding:20px; }
-.container { max-width:500px; margin:auto; background:#fff; padding:20px; border-radius:8px; box-shadow:0 0 10px rgba(0,0,0,0.1); }
-h2 { text-align:center; }
-label { display:block; margin-top:10px; }
-input, button { width:100%; padding:8px; margin-top:5px; }
-.result { margin-top:15px; background:#eef; padding:10px; border-radius:5px; }
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f6f8;
+    padding: 20px;
+}
+.container {
+    max-width: 480px;
+    margin: auto;
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 12px rgba(0,0,0,0.1);
+}
+h2 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+label {
+    font-weight: bold;
+    margin-top: 10px;
+    display: block;
+}
+input, button {
+    width: 100%;
+    padding: 8px;
+    margin-top: 6px;
+    font-size: 14px;
+}
+button {
+    cursor: pointer;
+}
+.result {
+    margin-top: 15px;
+    padding: 10px;
+    background: #eef3ff;
+    border-radius: 6px;
+}
+.footer {
+    margin-top: 15px;
+    text-align: center;
+    font-size: 12px;
+    color: #666;
+}
 </style>
 </head>
 <body>
+
 <div class="container">
-<h2>TÍNH NGÀY LÙI HÀNG</h2>
+    <h2>TÍNH NGÀY LÙI HÀNG</h2>
 
+    <label>Ngày sản xuất (NSX)</label>
+    <input type="date" id="nsx">
 
-<label>Ngày sản xuất (NSX)</label>
-<input type="date" id="nsx">
+    <label>Hạn sử dụng (HSD)</label>
+    <input type="date" id="hsd">
 
+    <button onclick="tinhNgay()">Tính kết quả</button>
+    <button onclick="resetForm()">Nhập lại</button>
 
-<label>Hạn sử dụng (HSD)</label>
-<input type="date" id="hsd">
+    <div class="result" id="ketqua"></div>
 
-
-<button onclick="tinh()">Tính kết quả</button>
-<button onclick="resetForm()">Nhập lại</button>
-
-
-<div class="result" id="ketqua"></div>
+    <div class="footer">
+        Quy tắc: Lùi hàng khi còn dưới 20% HSD
+    </div>
 </div>
 
-
 <script>
-function tinh(){
-const nsx = new Date(document.getElementById("nsx").value);
-const hsd = new Date(document.getElementById("hsd").value);
-const kq = document.getElementById("ketqua");
+function tinhNgay() {
+    const nsxInput = document.getElementById("nsx").value;
+    const hsdInput = document.getElementById("hsd").value;
+    const ketqua = document.getElementById("ketqua");
 
+    if (!nsxInput || !hsdInput) {
+        ketqua.innerHTML = "Vui lòng nhập đầy đủ NSX và HSD.";
+        return;
+    }
 
-if(!nsx || !hsd || isNaN(nsx) || isNaN(hsd)){
-kq.innerHTML = "Vui lòng nhập đầy đủ NSX và HSD.";
-return;
+    const nsx = new Date(nsxInput);
+    const hsd = new Date(hsdInput);
+
+    if (nsx >= hsd) {
+        ketqua.innerHTML = "NSX phải nhỏ hơn HSD.";
+        return;
+    }
+
+    const totalDays = Math.floor((hsd - nsx) / (1000 * 60 * 60 * 24));
+    const twentyPercent = Math.floor(totalDays * 0.2);
+
+    const luiDate = new Date(hsd);
+    luiDate.setDate(luiDate.getDate() - twentyPercent);
+
+    const formatDate = (d) => d.toLocaleDateString("vi-VN");
+
+    ketqua.innerHTML = `
+        Tổng số ngày HSD: <b>${totalDays}</b> ngày<br>
+        20% HSD: <b>${twentyPercent}</b> ngày<br>
+        Ngày cuối được trưng bày: <b>${formatDate(luiDate)}</b>
+    `;
 }
 
-
-if(nsx >= hsd){
-kq.innerHTML = "NSX phải nhỏ hơn HSD.";
-return;
-}
-
-
-const totalDays = Math.floor((hsd - nsx)/(1000*60*60*24));
-const twentyPercent = Math.floor(totalDays * 0.2);
-const luiDate = new Date(hsd);
-luiDate.setDate(luiDate.getDate() - twentyPercent);
-
-
-const format = d => d.toLocaleDateString("vi-VN");
-
-
-kq.innerHTML = `
-Tổng HSD: ${totalDays} ngày<br>
-20% HSD: ${twentyPercent} ngày<br>
-<b>Ngày lùi hàng: ${format(luiDate)}</b>
-`;
-}
-
-
-function resetForm(){
-document.getElementById("nsx").value="";
-document.getElementById("hsd").value="";
-document.getElementById("ketqua").innerHTML="";
+function resetForm() {
+    document.getElementById("nsx").value = "";
+    document.getElementById("hsd").value = "";
+    document.getElementById("ketqua").innerHTML = "";
 }
 </script>
+
 </body>
 </html>

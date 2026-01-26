@@ -3,244 +3,158 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tính ngày lùi hàng</title>
+<title>Tính Ngày Lùi Hàng</title>
 
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <style>
-*{box-sizing:border-box}
-body{
-  margin:0;
-  font-family:Inter,system-ui,sans-serif;
-  background:#f3f6fc;
-  color:#1f2937;
-}
-
-.header{
-  display:flex;
-  align-items:center;
-  gap:12px;
-  padding:12px 16px;
-  background:#fff;
-  border-bottom:1px solid #e5e7eb;
-}
-
-.header img{height:30px}
-
-.app{
-  max-width:1100px;
-  margin:16px auto;
-  background:#fff;
-  border-radius:16px;
-  box-shadow:0 12px 32px rgba(0,0,0,.08);
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  overflow:hidden;
-}
-
-.left,.right{padding:20px}
-
-.right{background:#f8faff}
-
-h1{margin:0 0 16px;font-size:20px}
-
-.field{margin-bottom:14px}
-
-label{font-size:13px;color:#4b5563;display:block;margin-bottom:5px}
-
-input{
-  width:100%;
-  padding:10px;
-  border:1px solid #d1d5db;
-  border-radius:10px;
-}
-
-.buttons{display:flex;gap:10px;margin-top:10px}
-
-button{
-  flex:1;
-  padding:10px;
-  border:none;
-  border-radius:10px;
-  cursor:pointer;
-  font-weight:500;
-}
-
-.btn-primary{background:linear-gradient(135deg,#5b6cff,#7c3aed);color:#fff}
-.btn-secondary{background:#e5e7eb}
-
-.result-box{
-  border:1px dashed #c7d2fe;
-  border-radius:12px;
-  padding:16px;
-  min-height:150px;
-}
-
-.highlight{color:#4f46e5;font-weight:600;font-size:17px}
-
-.warning{
-  margin-top:10px;
-  padding:10px;
-  border-radius:8px;
-  background:#fee2e2;
-  color:#991b1b;
-  font-weight:600;
-}
-
-.history{
-  margin-top:16px;
-}
-
-.history h3{font-size:15px;margin-bottom:8px}
-
-.history-list{
-  max-height:220px;
-  overflow:auto;
-  border:1px solid #e5e7eb;
-  border-radius:10px;
-  padding:8px;
-  background:#fff;
-}
-
-.history-item{
-  font-size:13px;
-  padding:6px;
-  border-bottom:1px solid #f1f1f1;
-}
-
-.history-item:last-child{border-bottom:none}
-
-.clear-btn{
-  margin-top:6px;
-  font-size:12px;
-  background:#fee2e2;
-  color:#991b1b;
-}
-
-/* Mobile */
-@media(max-width:800px){
-  .app{grid-template-columns:1fr}
-  .right{border-top:1px solid #e5e7eb}
-}
+body{background:#f5f7fb}
+.card{background:#fff;border-radius:14px;box-shadow:0 10px 25px rgba(0,0,0,.06)}
+.warn{color:#dc2626;font-weight:600}
+.ok{color:#16a34a;font-weight:600}
+.history-item{border-bottom:1px solid #eee;padding:8px 0}
 </style>
 </head>
-<body>
 
-<div class="header">
-  <img src="https://upload.wikimedia.org/wikipedia/vi/8/8b/Saigon_Coop_logo.png">
-  <strong>Công cụ tính ngày lùi hàng</strong>
+<body class="p-4 max-w-5xl mx-auto">
+
+<!-- Header -->
+<div class="flex items-center gap-3 mb-5">
+  <img src="https://upload.wikimedia.org/wikipedia/vi/thumb/6/6b/Logo_Saigon_Co.op.svg/256px-Logo_Saigon_Co.op.svg.png" class="h-10">
+  <h1 class="text-2xl font-bold text-gray-800">TÍNH NGÀY LÙI HÀNG</h1>
 </div>
 
-<div class="app">
+<div class="grid md:grid-cols-2 gap-4">
 
-<div class="left">
-<h1>Nhập thông tin sản phẩm</h1>
+<!-- Left -->
+<div class="card p-4 space-y-3">
 
-<div class="field">
-<label>Ngày sản xuất (NSX)</label>
-<input type="date" id="nsx">
-</div>
-
-<div class="field">
-<label>Hạn sử dụng (HSD)</label>
-<input type="date" id="hsd">
-</div>
-
-<div class="buttons">
-<button class="btn-primary" onclick="tinhNgay()">Tính</button>
-<button class="btn-secondary" onclick="resetForm()">Nhập lại</button>
-</div>
-
-<div class="history">
-<h3>Lịch sử tính</h3>
-<div class="history-list" id="historyList"></div>
-<button class="clear-btn" onclick="clearHistory()">Xóa lịch sử</button>
+<div>
+<label class="font-medium">Barcode</label>
+<div class="flex gap-2">
+<input id="barcode" class="border p-2 rounded w-full" placeholder="Quét hoặc nhập mã">
+<button onclick="startScan()" class="bg-blue-600 text-white px-3 rounded">Quét</button>
 </div>
 </div>
 
-<div class="right">
-<div class="result-box" id="ketqua">
-Kết quả sẽ hiển thị tại đây
+<div id="reader" class="hidden"></div>
+
+<div>
+<label class="font-medium">Ngày sản xuất (NSX)</label>
+<input type="date" id="nsx" class="border p-2 rounded w-full">
 </div>
+
+<div>
+<label class="font-medium">Hạn sử dụng (HSD)</label>
+<input type="date" id="hsd" class="border p-2 rounded w-full">
+</div>
+
+<button onclick="calculate()" class="bg-green-600 text-white py-2 rounded w-full mt-2">Tính kết quả</button>
+
+<button onclick="exportExcel()" class="bg-gray-700 text-white py-2 rounded w-full mt-2">Xuất Excel lịch sử</button>
+
+</div>
+
+<!-- Right -->
+<div class="card p-4">
+
+<h2 class="font-semibold mb-2">Kết quả</h2>
+<div id="result" class="mb-4 text-sm text-gray-700"></div>
+
+<h2 class="font-semibold mb-2">Lịch sử</h2>
+<div id="history" class="max-h-80 overflow-y-auto text-sm"></div>
+
 </div>
 
 </div>
 
 <script>
-const historyKey="luihang_history";
+const historyKey="lui_hang_history";
+let scanner=null;
 
-function tinhNgay(){
-  const nsxVal=document.getElementById("nsx").value;
-  const hsdVal=document.getElementById("hsd").value;
-  const box=document.getElementById("ketqua");
-
-  if(!nsxVal||!hsdVal){
-    box.innerHTML="Vui lòng nhập đầy đủ NSX và HSD.";
-    return;
+function startScan(){
+ const reader=document.getElementById("reader");
+ reader.classList.remove("hidden");
+ scanner=new Html5Qrcode("reader");
+ scanner.start({facingMode:"environment"},{fps:10,qrbox:250},
+  txt=>{
+   document.getElementById("barcode").value=txt;
+   stopScan();
   }
-
-  const nsx=new Date(nsxVal);
-  const hsd=new Date(hsdVal);
-  if(nsx>=hsd){
-    box.innerHTML="NSX phải nhỏ hơn HSD.";
-    return;
-  }
-
-  const totalDays=Math.floor((hsd-nsx)/(1000*60*60*24));
-  const twenty=Math.floor(totalDays*0.2);
-
-  const lui=new Date(hsd);
-  lui.setDate(lui.getDate()-twenty);
-
-  const today=new Date(); today.setHours(0,0,0,0);
-
-  let warningHTML="";
-  if(today>=lui){
-    warningHTML=`<div class="warning">⚠ Đã dưới 20% HSD – cần lùi hàng</div>`;
-  }
-
-  const fmt=d=>d.toLocaleDateString("vi-VN");
-
-  box.innerHTML=`
-  Tổng HSD: <b>${totalDays}</b> ngày<br>
-  20% HSD: <b>${twenty}</b> ngày<br>
-  Ngày lùi hàng: <span class="highlight">${fmt(lui)}</span>
-  ${warningHTML}
-  `;
-
-  saveHistory(fmt(nsx),fmt(hsd),fmt(lui));
-  renderHistory();
+ );
 }
 
-function saveHistory(nsx,hsd,lui){
-  let arr=JSON.parse(localStorage.getItem(historyKey)||"[]");
-  arr.unshift({nsx,hsd,lui,time:new Date().toLocaleString("vi-VN")});
-  if(arr.length>20) arr.pop();
-  localStorage.setItem(historyKey,JSON.stringify(arr));
+function stopScan(){
+ if(scanner){
+  scanner.stop();
+  document.getElementById("reader").classList.add("hidden");
+ }
+}
+
+function calculate(){
+ const nsx=document.getElementById("nsx").value;
+ const hsd=document.getElementById("hsd").value;
+ const barcode=document.getElementById("barcode").value;
+
+ if(!nsx||!hsd){alert("Nhập đầy đủ NSX và HSD");return;}
+
+ const d1=new Date(nsx);
+ const d2=new Date(hsd);
+
+ if(d1>=d2){alert("HSD phải lớn hơn NSX");return;}
+
+ const total=(d2-d1)/(1000*3600*24);
+ const remain=Math.floor(total*0.2);
+ const luiDate=new Date(d2);
+ luiDate.setDate(luiDate.getDate()-remain);
+
+ const today=new Date();
+ const warning=today>=luiDate;
+
+ const html=`
+Barcode: <b>${barcode||"(không có)"}</b><br>
+Tổng HSD: ${Math.round(total)} ngày<br>
+20%: ${remain} ngày<br>
+Ngày lùi hàng: <b>${luiDate.toLocaleDateString("vi-VN")}</b><br>
+<span class="${warning?'warn':'ok'}">
+${warning?"⚠ Sản phẩm đã vào giai đoạn <20% HSD":"✓ Sản phẩm còn đủ điều kiện trưng bày"}
+</span>
+`;
+
+ document.getElementById("result").innerHTML=html;
+
+ saveHistory(barcode,nsx,hsd,luiDate.toLocaleDateString("vi-VN"));
+ renderHistory();
+}
+
+function saveHistory(barcode,nsx,hsd,lui){
+ let arr=JSON.parse(localStorage.getItem(historyKey)||"[]");
+ arr.unshift({barcode,nsx,hsd,lui,time:new Date().toLocaleString("vi-VN")});
+ if(arr.length>100)arr.pop();
+ localStorage.setItem(historyKey,JSON.stringify(arr));
 }
 
 function renderHistory(){
-  const list=document.getElementById("historyList");
-  const arr=JSON.parse(localStorage.getItem(historyKey)||"[]");
-  list.innerHTML=arr.map(i=>`
-  <div class="history-item">
-  NSX: ${i.nsx} | HSD: ${i.hsd}<br>
-  Lùi: <b>${i.lui}</b><br>
-  <small>${i.time}</small>
-  </div>`).join("");
+ const arr=JSON.parse(localStorage.getItem(historyKey)||"[]");
+ document.getElementById("history").innerHTML=arr.map(i=>`
+<div class="history-item">
+<b>${i.barcode||"(no barcode)"}</b><br>
+NSX: ${i.nsx} | HSD: ${i.hsd}<br>
+Lùi: ${i.lui}<br>
+<small>${i.time}</small>
+</div>`).join("");
 }
 
-function clearHistory(){
-  if(confirm("Xóa toàn bộ lịch sử?")){
-    localStorage.removeItem(historyKey);
-    renderHistory();
-  }
-}
+function exportExcel(){
+ const arr=JSON.parse(localStorage.getItem(historyKey)||"[]");
+ if(arr.length==0){alert("Chưa có dữ liệu");return;}
 
-function resetForm(){
-  document.getElementById("nsx").value="";
-  document.getElementById("hsd").value="";
-  document.getElementById("ketqua").innerHTML="Kết quả sẽ hiển thị tại đây";
+ const ws=XLSX.utils.json_to_sheet(arr);
+ const wb=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb,ws,"Lich_su");
+ XLSX.writeFile(wb,"lich_su_lui_hang.xlsx");
 }
 
 renderHistory();

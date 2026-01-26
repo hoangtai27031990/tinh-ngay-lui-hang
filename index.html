@@ -10,151 +10,182 @@
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
 <style>
-:root{
-  --coop-red:#d71920;
-}
-body{background:#f3f4f6}
-.card{background:#fff;border-radius:14px;box-shadow:0 4px 16px rgba(0,0,0,.08)}
-.warning{color:#d71920;font-weight:700}
+body { background:#f3f4f6; }
+.card { background:#fff;border-radius:14px;box-shadow:0 4px 16px rgba(0,0,0,.08);}
+.warning {color:#b91c1c;font-weight:700;}
+.brand-bg { background:#c40018; }
+.brand-text { color:#c40018; }
 </style>
 </head>
 
-<body class="max-w-3xl mx-auto p-3">
+<body class="max-w-xl mx-auto p-3">
 
 <!-- HEADER -->
-<header class="flex items-center gap-3 bg-white p-3 rounded-xl shadow mb-4">
-  <img src="logo.png" class="h-10">
+<div class="flex items-center gap-3 mb-4 p-3 rounded-lg brand-bg text-white">
+  <img src="logo.png" class="h-10 bg-white p-1 rounded" onerror="this.style.display='none'">
   <div>
-    <h1 class="font-bold text-lg text-slate-800">HỆ THỐNG QUẢN LÝ HSD</h1>
-    <div class="text-sm text-slate-500">Tính ngày lùi hàng – Saigon Co.op</div>
+    <div class="font-bold text-lg">SAIGON CO.OP</div>
+    <div class="text-sm opacity-90">Hệ thống tính ngày lùi hàng hóa</div>
   </div>
-</header>
+</div>
 
-<!-- INPUT -->
-<div class="card p-4 mb-4">
-<h2 class="font-semibold text-slate-700 mb-3">1. Nhập thông tin sản phẩm</h2>
-
-<div class="grid md:grid-cols-2 gap-3">
+<!-- FORM -->
+<div class="card p-4 space-y-3">
 
 <div>
-<label class="text-sm">Barcode</label>
-<div class="flex gap-2">
+<label class="font-semibold">Barcode sản phẩm</label>
+<div class="flex gap-2 mt-1">
 <input id="barcode" class="border p-2 rounded w-full">
-<button onclick="startScan()" class="bg-[var(--coop-red)] text-white px-3 rounded">Quét</button>
+<button onclick="startScan()" class="brand-bg text-white px-3 rounded">Quét</button>
 </div>
-<div id="reader" class="mt-2"></div>
+</div>
+
+<div id="reader"></div>
+
+<div>
+<label class="font-semibold">Ngày sản xuất (NSX)</label>
+<input type="date" id="nsx" class="border p-2 rounded w-full mt-1">
 </div>
 
 <div>
-<label class="text-sm">Ngày sản xuất (NSX)</label>
-<input type="date" id="nsx" class="border p-2 rounded w-full mt-1">
-
-<label class="text-sm mt-2 block">Hạn sử dụng (HSD)</label>
+<label class="font-semibold">Hạn sử dụng (HSD)</label>
 <input type="date" id="hsd" class="border p-2 rounded w-full mt-1">
 </div>
 
-</div>
+<div class="grid grid-cols-2 gap-2 pt-2">
+<button onclick="calculate()" class="brand-bg text-white py-2 rounded font-semibold">
+TÍNH KẾT QUẢ
+</button>
 
-<button onclick="calculate()" class="mt-4 bg-[var(--coop-red)] text-white w-full py-2 rounded font-semibold">
-TÍNH NGÀY LÙI HÀNG
+<button onclick="resetForm()" class="bg-gray-500 text-white py-2 rounded font-semibold">
+TÍNH LẠI
 </button>
 </div>
 
-<!-- RESULT -->
-<div class="card p-4 mb-4">
-<h2 class="font-semibold text-slate-700 mb-2">2. Kết quả đánh giá</h2>
-<div id="result" class="text-lg"></div>
+<div id="result" class="text-center font-semibold pt-2"></div>
+
+<div class="grid grid-cols-2 gap-2 pt-2">
+<button onclick="exportExcel()" class="bg-slate-700 text-white py-2 rounded">
+Xuất Excel
+</button>
+
+<button onclick="clearHistory()" class="bg-red-600 text-white py-2 rounded">
+Xóa lịch sử
+</button>
+</div>
+
 </div>
 
 <!-- HISTORY -->
-<div class="card p-4">
-<div class="flex justify-between items-center mb-2">
-<h2 class="font-semibold text-slate-700">3. Lịch sử xử lý</h2>
-<div class="flex gap-2">
-<button onclick="exportExcel()" class="bg-slate-700 text-white px-3 py-1 rounded text-sm">Xuất Excel</button>
-<button onclick="clearHistory()" class="bg-red-600 text-white px-3 py-1 rounded text-sm">Xóa</button>
+<div class="card p-3 mt-4">
+<h2 class="font-bold brand-text mb-2">Lịch sử tính toán</h2>
+<div id="history" class="text-sm space-y-1 max-h-64 overflow-auto"></div>
 </div>
-</div>
-
-<div id="history" class="text-sm max-h-64 overflow-auto space-y-1"></div>
-</div>
-
-<footer class="text-center text-xs text-slate-500 mt-4">
-Hệ thống nội bộ Saigon Co.op – Không lưu trữ hình ảnh người dùng
-</footer>
 
 <script>
-const historyKey="coop_hsd_history";
+const historyKey = "coop_ngay_lui_history";
 
 function calculate(){
- if(!nsx.value||!hsd.value){alert("Vui lòng nhập đủ NSX và HSD");return;}
+ const nsxVal = nsxInput.value;
+ const hsdVal = hsdInput.value;
 
- const nsxDate=new Date(nsx.value);
- const hsdDate=new Date(hsd.value);
+ if(!nsxVal || !hsdVal){
+   alert("Vui lòng nhập đầy đủ NSX và HSD");
+   return;
+ }
 
- const total=(hsdDate-nsxDate)/(1000*3600*24);
- const limit=total*0.8;
- const display=new Date(nsxDate.getTime()+limit*86400000);
+ const nsx = new Date(nsxVal);
+ const hsd = new Date(hsdVal);
 
- const today=new Date();
- const warning=display<today;
+ if(hsd <= nsx){
+   alert("HSD phải lớn hơn NSX");
+   return;
+ }
 
- result.innerHTML=`
-<div>Ngày trưng bày cuối: <b>${display.toLocaleDateString()}</b></div>
-${warning?'<div class="warning mt-1">⚠ Dưới 20% HSD – đề xuất xử lý theo quy định</div>':'<div class="text-green-700 mt-1">✔ Còn trong ngưỡng an toàn</div>'}
+ const totalDays = (hsd - nsx)/(1000*3600*24);
+ const limitDays = totalDays * 0.8;
+ const displayDate = new Date(nsx.getTime() + limitDays*24*3600*1000);
+
+ const today = new Date();
+ let warning = displayDate < today;
+
+ result.innerHTML = `
+<div>Ngày trưng bày cuối:</div>
+<div class="text-lg">${displayDate.toLocaleDateString('vi-VN')}</div>
+${warning ? '<div class="warning mt-1">⚠ SẢN PHẨM DƯỚI 20% HSD</div>' : '<div class="text-green-700 mt-1">✓ Còn trong ngưỡng an toàn</div>'}
 `;
 
- saveHistory(display,warning);
+ saveHistory(displayDate, warning);
 }
 
-function saveHistory(date,warning){
- let h=JSON.parse(localStorage.getItem(historyKey)||"[]");
- h.unshift({
-  barcode:barcode.value||"",
-  nsx:nsx.value,
-  hsd:hsd.value,
-  display:date.toLocaleDateString(),
-  status:warning?"Dưới 20%":"An toàn",
-  time:new Date().toLocaleString()
+function resetForm(){
+ barcode.value = "";
+ nsxInput.value = "";
+ hsdInput.value = "";
+ result.innerHTML = "";
+}
+
+function saveHistory(date, warning){
+ let history = JSON.parse(localStorage.getItem(historyKey)||"[]");
+
+ history.unshift({
+  barcode: barcode.value || "",
+  nsx: nsxInput.value,
+  hsd: hsdInput.value,
+  display: date.toLocaleDateString('vi-VN'),
+  warning,
+  time: new Date().toLocaleString('vi-VN')
  });
- localStorage.setItem(historyKey,JSON.stringify(h));
+
+ localStorage.setItem(historyKey, JSON.stringify(history));
  renderHistory();
 }
 
 function renderHistory(){
- const h=JSON.parse(localStorage.getItem(historyKey)||"[]");
- history.innerHTML=h.map(i=>`
-<div class="border-b pb-1 ${i.status==="Dưới 20%"?"warning":""}">
-📦 ${i.barcode||"---"} | ${i.display} | ${i.status} | ${i.time}
+ const history = JSON.parse(localStorage.getItem(historyKey)||"[]");
+ historyDiv.innerHTML = history.map(h=>`
+<div class="border-b pb-1 ${h.warning?'warning':''}">
+<b>${h.barcode || '---'}</b> | ${h.display} | ${h.time}
 </div>
 `).join("");
 }
 
 function clearHistory(){
- if(confirm("Xóa toàn bộ lịch sử?")){
-  localStorage.removeItem(historyKey);
-  renderHistory();
+ if(confirm("Xác nhận xóa toàn bộ lịch sử?")){
+   localStorage.removeItem(historyKey);
+   renderHistory();
  }
 }
 
 function exportExcel(){
- const h=JSON.parse(localStorage.getItem(historyKey)||"[]");
- if(!h.length){alert("Không có dữ liệu");return;}
- const ws=XLSX.utils.json_to_sheet(h);
- const wb=XLSX.utils.book_new();
- XLSX.utils.book_append_sheet(wb,ws,"LichSu");
- XLSX.writeFile(wb,"saigoncoop_hsd.xlsx");
+ const history = JSON.parse(localStorage.getItem(historyKey)||"[]");
+ if(!history.length){ alert("Không có dữ liệu để xuất"); return; }
+
+ const ws = XLSX.utils.json_to_sheet(history);
+ const wb = XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb, ws, "LichSu");
+ XLSX.writeFile(wb, "saigoncoop_lich_su_ngay_lui.xlsx");
 }
 
-let qr;
+/* BARCODE */
+let html5Qr;
 function startScan(){
- reader.innerHTML="";
- qr=new Html5Qrcode("reader");
- qr.start({facingMode:"environment"},{fps:10,qrbox:250},
-  code=>{barcode.value=code;qr.stop();},
+ document.getElementById("reader").innerHTML="";
+ html5Qr = new Html5Qrcode("reader");
+ html5Qr.start({ facingMode: "environment" }, { fps:10, qrbox:250 },
+  code=>{
+    barcode.value=code;
+    html5Qr.stop();
+  },
   err=>{}
  );
 }
+
+const nsxInput = document.getElementById("nsx");
+const hsdInput = document.getElementById("hsd");
+const barcode = document.getElementById("barcode");
+const result = document.getElementById("result");
+const historyDiv = document.getElementById("history");
 
 renderHistory();
 </script>

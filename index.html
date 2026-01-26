@@ -4,111 +4,253 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tính ngày lùi hàng</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
 <style>
-body {
-    font-family: Arial, sans-serif;
-    background: #f4f6f8;
-    padding: 20px;
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:Inter,system-ui,sans-serif;
+  background:#f3f6fc;
+  color:#1f2937;
 }
-.container {
-    max-width: 480px;
-    margin: auto;
-    background: #ffffff;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 0 12px rgba(0,0,0,0.1);
+
+.header{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:14px 24px;
+  background:#ffffff;
+  border-bottom:1px solid #e5e7eb;
 }
-h2 {
-    text-align: center;
-    margin-bottom: 20px;
+
+.header img{
+  height:34px;
 }
-label {
-    font-weight: bold;
-    margin-top: 10px;
-    display: block;
+
+.header-title{
+  font-weight:600;
+  color:#374151;
 }
-input, button {
-    width: 100%;
-    padding: 8px;
-    margin-top: 6px;
-    font-size: 14px;
+
+.app{
+  max-width:1000px;
+  margin:30px auto;
+  background:#fff;
+  border-radius:16px;
+  box-shadow:0 12px 32px rgba(0,0,0,.08);
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  overflow:hidden;
 }
-button {
-    cursor: pointer;
+
+.left{
+  padding:32px;
+  border-right:1px solid #e5e7eb;
 }
-.result {
-    margin-top: 15px;
-    padding: 10px;
-    background: #eef3ff;
-    border-radius: 6px;
+
+.right{
+  padding:32px;
+  background:#f8faff;
 }
-.footer {
-    margin-top: 15px;
-    text-align: center;
-    font-size: 12px;
-    color: #666;
+
+h1{
+  margin:0 0 24px;
+  font-size:22px;
+  font-weight:600;
+  color:#1f2937;
+}
+
+.field{margin-bottom:18px}
+
+label{
+  display:block;
+  font-size:13px;
+  margin-bottom:6px;
+  color:#4b5563;
+}
+
+input{
+  width:100%;
+  padding:11px 12px;
+  border:1px solid #d1d5db;
+  border-radius:10px;
+  font-size:14px;
+}
+
+input:focus{
+  outline:none;
+  border-color:#5b6cff;
+  box-shadow:0 0 0 3px rgba(91,108,255,.15);
+}
+
+.buttons{
+  display:flex;
+  gap:12px;
+  margin-top:10px;
+}
+
+button{
+  flex:1;
+  border:none;
+  padding:11px;
+  border-radius:10px;
+  font-weight:500;
+  cursor:pointer;
+  font-size:14px;
+}
+
+.btn-primary{
+  background:linear-gradient(135deg,#5b6cff,#7c3aed);
+  color:#fff;
+}
+
+.btn-secondary{
+  background:#e5e7eb;
+  color:#111827;
+}
+
+.result-box{
+  border:1px dashed #c7d2fe;
+  border-radius:12px;
+  padding:20px;
+  min-height:170px;
+}
+
+.result-title{
+  font-weight:600;
+  margin-bottom:12px;
+}
+
+.highlight{
+  color:#4f46e5;
+  font-weight:600;
+  font-size:18px;
+}
+
+.warning{
+  margin-top:14px;
+  padding:12px;
+  border-radius:10px;
+  background:#fee2e2;
+  color:#991b1b;
+  font-weight:600;
+  border:1px solid #fecaca;
+}
+
+.footer{
+  margin-top:24px;
+  font-size:12px;
+  color:#6b7280;
+  text-align:center;
+}
+
+@media(max-width:800px){
+  .app{grid-template-columns:1fr}
+  .left{border-right:none;border-bottom:1px solid #e5e7eb}
 }
 </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>TÍNH NGÀY LÙI HÀNG</h2>
+<div class="header">
+  <img src="https://upload.wikimedia.org/wikipedia/vi/8/8b/Saigon_Coop_logo.png" alt="Saigon Co.op">
+  <div class="header-title">Công cụ nội bộ – Tính ngày lùi hàng</div>
+</div>
 
-    <label>Ngày sản xuất (NSX)</label>
-    <input type="date" id="nsx">
+<div class="app">
 
-    <label>Hạn sử dụng (HSD)</label>
-    <input type="date" id="hsd">
+  <div class="left">
+    <h1>Nhập thông tin sản phẩm</h1>
 
-    <button onclick="tinhNgay()">Tính kết quả</button>
-    <button onclick="resetForm()">Nhập lại</button>
+    <div class="field">
+      <label>Ngày sản xuất (NSX)</label>
+      <input type="date" id="nsx">
+    </div>
 
-    <div class="result" id="ketqua"></div>
+    <div class="field">
+      <label>Hạn sử dụng (HSD)</label>
+      <input type="date" id="hsd">
+    </div>
+
+    <div class="buttons">
+      <button class="btn-primary" onclick="tinhNgay()">Tính kết quả</button>
+      <button class="btn-secondary" onclick="resetForm()">Nhập lại</button>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="result-box" id="ketqua">
+      <div class="result-title">Kết quả sẽ hiển thị tại đây</div>
+      <div>Quy tắc: chỉ trưng bày khi còn ≥ 20% HSD.</div>
+    </div>
 
     <div class="footer">
-        Quy tắc: Lùi hàng khi còn dưới 20% HSD
+      Saigon Co.op – Internal Tool
     </div>
+  </div>
+
 </div>
 
 <script>
-function tinhNgay() {
-    const nsxInput = document.getElementById("nsx").value;
-    const hsdInput = document.getElementById("hsd").value;
-    const ketqua = document.getElementById("ketqua");
+function tinhNgay(){
+  const nsxVal=document.getElementById("nsx").value;
+  const hsdVal=document.getElementById("hsd").value;
+  const box=document.getElementById("ketqua");
 
-    if (!nsxInput || !hsdInput) {
-        ketqua.innerHTML = "Vui lòng nhập đầy đủ NSX và HSD.";
-        return;
-    }
+  if(!nsxVal||!hsdVal){
+    box.innerHTML="<b>Lỗi:</b> Vui lòng nhập đầy đủ NSX và HSD.";
+    return;
+  }
 
-    const nsx = new Date(nsxInput);
-    const hsd = new Date(hsdInput);
+  const nsx=new Date(nsxVal);
+  const hsd=new Date(hsdVal);
 
-    if (nsx >= hsd) {
-        ketqua.innerHTML = "NSX phải nhỏ hơn HSD.";
-        return;
-    }
+  if(nsx>=hsd){
+    box.innerHTML="<b>Lỗi:</b> NSX phải nhỏ hơn HSD.";
+    return;
+  }
 
-    const totalDays = Math.floor((hsd - nsx) / (1000 * 60 * 60 * 24));
-    const twentyPercent = Math.floor(totalDays * 0.2);
+  const totalDays=Math.floor((hsd-nsx)/(1000*60*60*24));
+  const twenty=Math.floor(totalDays*0.2);
 
-    const luiDate = new Date(hsd);
-    luiDate.setDate(luiDate.getDate() - twentyPercent);
+  const lui=new Date(hsd);
+  lui.setDate(lui.getDate()-twenty);
 
-    const formatDate = (d) => d.toLocaleDateString("vi-VN");
+  const today=new Date();
+  today.setHours(0,0,0,0);
 
-    ketqua.innerHTML = `
-        Tổng số ngày HSD: <b>${totalDays}</b> ngày<br>
-        20% HSD: <b>${twentyPercent}</b> ngày<br>
-        Ngày cuối được trưng bày: <b>${formatDate(luiDate)}</b>
+  const fmt=d=>d.toLocaleDateString("vi-VN");
+
+  let warningHTML="";
+
+  if(today>=lui){
+    warningHTML=`
+      <div class="warning">
+        ⚠ CẢNH BÁO: Sản phẩm đã bước vào giai đoạn dưới 20% HSD.<br>
+        Cần thực hiện lùi hàng / xử lý theo quy định.
+      </div>
     `;
+  }
+
+  box.innerHTML=`
+    <div class="result-title">Kết quả tính toán</div>
+    Tổng số ngày HSD: <b>${totalDays}</b> ngày<br><br>
+    20% HSD: <b>${twenty}</b> ngày<br><br>
+    Ngày cuối được trưng bày:<br>
+    <span class="highlight">${fmt(lui)}</span>
+    ${warningHTML}
+  `;
 }
 
-function resetForm() {
-    document.getElementById("nsx").value = "";
-    document.getElementById("hsd").value = "";
-    document.getElementById("ketqua").innerHTML = "";
+function resetForm(){
+  document.getElementById("nsx").value="";
+  document.getElementById("hsd").value="";
+  document.getElementById("ketqua").innerHTML=`
+    <div class="result-title">Kết quả sẽ hiển thị tại đây</div>
+    <div>Quy tắc: chỉ trưng bày khi còn ≥ 20% HSD.</div>
+  `;
 }
 </script>
 

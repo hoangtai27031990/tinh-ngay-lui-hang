@@ -1,0 +1,5 @@
+{
+  "name": "datelui",
+  "description": "Ứng dụng nghiệp vụ bán lẻ giúp tính toán ngày cuối cùng sản phẩm được phép trưng bày dựa trên quy tắc 20% hạn sử dụng còn lại.",
+  "requestFramePermissions": []
+}

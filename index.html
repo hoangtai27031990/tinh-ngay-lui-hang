@@ -112,8 +112,10 @@ function calculate(){
  result.innerHTML = `
 <div>Ngày trưng bày cuối:</div>
 <div class="text-lg">${displayDate.toLocaleDateString('vi-VN')}</div>
-${warning ? '<div class="warning mt-1">⚠ SẢN PHẨM DƯỚI 20% HSD</div>' : '<div class="text-green-700 mt-1">✓ Còn trong ngưỡng an toàn</div>'}
-`;
+${warning
+? '<div class="warning mt-1">⚠ DƯỚI 20% HSD – ĐỀ XUẤT XỬ LÝ THEO QUY ĐỊNH</div>'
+: '<div class="text-green-700 mt-1">✓ Còn trong ngưỡng an toàn</div>'
+}
 
  saveHistory(displayDate, warning);
 }

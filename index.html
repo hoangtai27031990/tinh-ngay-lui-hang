@@ -17,16 +17,37 @@ body{background:#f3f4f6}
 .warning20{color:#b91c1c;font-weight:700}
 .warning30{color:#c2410c;font-weight:700}
 
-.blink30{animation:blink30 1.2s ease-in-out infinite;}
-@keyframes blink30{
-0%,100%{background:#fff7ed}
-50%{background:#ffedd5;box-shadow:0 0 12px rgba(251,146,60,.9)}
+/* ===== MỐC 30% – CAM ĐẬM + NHANH + VIỀN NHẤP NHÁY ===== */
+.blink30{
+  animation: blink30 0.6s linear infinite;
+  border:2px solid #fb923c;
 }
 
-.blink20{animation:blink20 .7s ease-in-out infinite;}
+@keyframes blink30{
+  0%{
+    background:#fff3e0;
+    box-shadow:0 0 0 rgba(251,146,60,0);
+  }
+  50%{
+    background:#ff9800;
+    box-shadow:
+      0 0 18px rgba(251,146,60,1),
+      0 0 32px rgba(251,146,60,.9);
+  }
+  100%{
+    background:#fff3e0;
+    box-shadow:0 0 0 rgba(251,146,60,0);
+  }
+}
+
+/* ===== MỐC 20% – ĐỎ MẠNH ===== */
+.blink20{
+  animation: blink20 .7s ease-in-out infinite;
+}
+
 @keyframes blink20{
-0%,100%{background:#fff1f2}
-50%{background:#fee2e2;box-shadow:0 0 18px rgba(239,68,68,1)}
+  0%,100%{background:#fff1f2;box-shadow:0 0 0 rgba(239,68,68,0)}
+  50%{background:#fee2e2;box-shadow:0 0 18px rgba(239,68,68,1)}
 }
 </style>
 </head>
@@ -34,10 +55,10 @@ body{background:#f3f4f6}
 <body class="max-w-xl mx-auto p-3">
 
 <div class="flex items-center gap-3 mb-4 p-3 rounded-lg brand-bg text-white">
-<div>
-<div class="font-bold text-lg">HỆ THỐNG QUẢN LÝ HSD</div>
-<div class="text-sm opacity-90">Saigon Co.op – Kiểm soát hạn sử dụng</div>
-</div>
+  <div>
+    <div class="font-bold text-lg">HỆ THỐNG QUẢN LÝ HSD</div>
+    <div class="text-sm opacity-90">Saigon Co.op – Kiểm soát hạn sử dụng</div>
+  </div>
 </div>
 
 <div class="card p-4 space-y-3">
@@ -98,16 +119,16 @@ async function startScan(){
  code=>{
    barcodeInput.value=code;
 
-   navigator.vibrate?.(200);
+   if(navigator.vibrate) navigator.vibrate(200);
    new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg").play().catch(()=>{});
 
    if(navigator.userAgent.toLowerCase().includes("zalo")){
-     alert("⚠ Zalo hạn chế camera. Nếu quét không ổn định hãy mở bằng Chrome/Safari.");
+     alert("⚠ Zalo hạn chế camera. Nên mở bằng Chrome/Safari để quét ổn định.");
    }
 
    html5Qr.stop();
    reader.classList.add("hidden");
- });
+ },()=>{});
 }
 
 function calculate(){
@@ -128,13 +149,15 @@ function calculate(){
  let flag30="Bình thường",flag20="Bình thường";
 
  if(today>=date30){
-   warn30=`<div class="warning30 mt-1">⚠ Cảnh báo: Thông tin quản lý giải tồn</div>`;
-   blink30="blink30"; flag30="Giải tồn";
+   warn30=`<div class="warning30 mt-1">⚠ Cảnh báo: Giải tồn</div>`;
+   blink30="blink30";
+   flag30="Giải tồn";
  }
 
  if(today>=date20){
-   warn20=`<div class="warning20 mt-1">⚠ Dưới 20% HSD – Rút hàng theo quy định</div>`;
-   blink20="blink20"; flag20="Rút hàng";
+   warn20=`<div class="warning20 mt-1">⚠ Cảnh báo: Rút hàng</div>`;
+   blink20="blink20";
+   flag20="Rút hàng";
  }
 
  resultDiv.innerHTML=`
@@ -146,52 +169,57 @@ ${warn30||"<div class='text-green-700 mt-1'>Trong ngưỡng an toàn</div>"}
 <div class="border rounded-lg p-3 ${blink20}">
 <b>MỐC 20% (LÙI HÀNG)</b><br>📅 ${date20.toLocaleDateString("vi-VN")}
 ${warn20||"<div class='text-green-700 mt-1'>Trong ngưỡng an toàn</div>"}
-</div>`;
+</div>
+`;
 
- saveHistory(date30,date20,flag30,flag20);
+ saveHistory(flag30,flag20);
+}
+
+function saveHistory(f30,f20){
+ let h=JSON.parse(localStorage.getItem(historyKey)||"[]");
+
+ h.unshift({
+  Barcode: barcodeInput.value,
+  NSX: nsxInput.value,
+  HSD: hsdInput.value,
+  "Cảnh báo 30%": f30,
+  "Cảnh báo 20%": f20,
+  "Thời gian": new Date().toLocaleString("vi-VN")
+ });
+
+ localStorage.setItem(historyKey,JSON.stringify(h));
  renderHistory();
 }
 
-function saveHistory(d30,d20,f30,f20){
- let h=JSON.parse(localStorage.getItem(historyKey)||"[]");
- h.unshift({
-  Barcode:barcodeInput.value,
-  NSX:nsxInput.value,
-  HSD:hsdInput.value,
-  CanhBao30:f30,
-  CanhBao20:f20,
-  Time:new Date().toLocaleString("vi-VN")
- });
- localStorage.setItem(historyKey,JSON.stringify(h));
-}
-
 function renderHistory(){
- let h=JSON.parse(localStorage.getItem(historyKey)||"[]");
- historyDiv.innerHTML=h.map(i=>`<div>📦 ${i.Barcode||"-"} | ${i.NSX} → ${i.HSD} | 30%: ${i.CanhBao30} | 20%: ${i.CanhBao20}</div>`).join("");
+ const h=JSON.parse(localStorage.getItem(historyKey)||"[]");
+ historyDiv.innerHTML=h.map(x=>`
+<div class="border-b pb-1">
+<b>${x.Barcode||"-"}</b> | 30%: ${x["Cảnh báo 30%"]} | 20%: ${x["Cảnh báo 20%"]}
+</div>`).join("");
 
- let g=h.filter(i=>i.CanhBao30==="Giải tồn").length;
- let r=h.filter(i=>i.CanhBao20==="Rút hàng").length;
- statDiv.innerHTML=`📊 Giải tồn: <b>${g}</b> | Rút hàng: <b>${r}</b>`;
-}
-
-function exportExcel(){
- let h=JSON.parse(localStorage.getItem(historyKey)||"[]");
- if(!h.length){alert("Chưa có dữ liệu");return;}
-
- const ws=XLSX.utils.json_to_sheet(h);
- const wb=XLSX.utils.book_new();
- XLSX.utils.book_append_sheet(wb,ws,"HSD");
- XLSX.writeFile(wb,"quan_ly_hsd.xlsx");
+ statDiv.innerHTML=`📦 Tổng bản ghi: <b>${h.length}</b>`;
 }
 
 function clearHistory(){
  if(confirm("Xóa toàn bộ lịch sử?")){
-  localStorage.removeItem(historyKey);
-  renderHistory();
+   localStorage.removeItem(historyKey);
+   renderHistory();
  }
 }
 
+function exportExcel(){
+ const h=JSON.parse(localStorage.getItem(historyKey)||"[]");
+ if(!h.length){alert("Không có dữ liệu");return;}
+
+ const ws=XLSX.utils.json_to_sheet(h);
+ const wb=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb,ws,"HSD");
+ XLSX.writeFile(wb,"saigoncoop_hsd.xlsx");
+}
+
 function resetForm(){
+ barcodeInput.value="";
  nsxInput.value="";
  hsdInput.value="";
  resultDiv.innerHTML="";
@@ -199,5 +227,6 @@ function resetForm(){
 
 renderHistory();
 </script>
+
 </body>
 </html>

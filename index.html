@@ -15,19 +15,18 @@ body{background:#f3f4f6}
 .brand-bg{background:#c40018}
 .brand-text{color:#c40018}
 .warning20{color:#b91c1c;font-weight:700}
-.warning30{color:#d97706;font-weight:700}
+.warning30{color:#c2410c;font-weight:700}
 
-.blink30{animation:blink30 1.5s ease-in-out infinite}
-@keyframes blink30{0%,100%{opacity:1}50%{opacity:.6}}
-
-.blink20{
- animation:blink20 .8s ease-in-out infinite;
- border-color:#dc2626!important;
+.blink30{animation:blink30 1.2s ease-in-out infinite;}
+@keyframes blink30{
+0%,100%{background:#fff7ed}
+50%{background:#ffedd5;box-shadow:0 0 12px rgba(251,146,60,.9)}
 }
+
+.blink20{animation:blink20 .7s ease-in-out infinite;}
 @keyframes blink20{
- 0%{box-shadow:0 0 0 rgba(220,38,38,0);background:#fff1f2}
- 50%{box-shadow:0 0 16px rgba(220,38,38,.9);background:#fee2e2}
- 100%{box-shadow:0 0 0 rgba(220,38,38,0);background:#fff1f2}
+0%,100%{background:#fff1f2}
+50%{background:#fee2e2;box-shadow:0 0 18px rgba(239,68,68,1)}
 }
 </style>
 </head>
@@ -35,10 +34,10 @@ body{background:#f3f4f6}
 <body class="max-w-xl mx-auto p-3">
 
 <div class="flex items-center gap-3 mb-4 p-3 rounded-lg brand-bg text-white">
-  <div>
-    <div class="font-bold text-lg">HỆ THỐNG QUẢN LÝ HSD</div>
-    <div class="text-sm opacity-90">Saigon Co.op – Kiểm soát hạn sử dụng</div>
-  </div>
+<div>
+<div class="font-bold text-lg">HỆ THỐNG QUẢN LÝ HSD</div>
+<div class="text-sm opacity-90">Saigon Co.op – Kiểm soát hạn sử dụng</div>
+</div>
 </div>
 
 <div class="card p-4 space-y-3">
@@ -79,96 +78,110 @@ body{background:#f3f4f6}
 
 <script>
 const historyKey="coop_hsd_history";
-const nsxInput=nsx.value, hsdInput=hsd.value;
+
+const barcodeInput=document.getElementById("barcode");
+const nsxInput=document.getElementById("nsx");
+const hsdInput=document.getElementById("hsd");
+const resultDiv=document.getElementById("result");
+const historyDiv=document.getElementById("history");
+const statDiv=document.getElementById("statistic");
 
 let html5Qr=null;
 
 async function startScan(){
- document.getElementById("reader").classList.remove("hidden");
+ const reader=document.getElementById("reader");
+ reader.classList.remove("hidden");
 
  if(!html5Qr) html5Qr=new Html5Qrcode("reader");
 
  html5Qr.start({facingMode:"environment"},{fps:10,qrbox:250},
  code=>{
-   barcode.value=code;
+   barcodeInput.value=code;
 
-   if(navigator.vibrate) navigator.vibrate(200);
-
-   const audio=new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
-   audio.play().catch(()=>{});
+   navigator.vibrate?.(200);
+   new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg").play().catch(()=>{});
 
    if(navigator.userAgent.toLowerCase().includes("zalo")){
-     alert("⚠ Lưu ý: Zalo hạn chế camera – nếu quét không ổn định hãy mở bằng Chrome/Safari.");
+     alert("⚠ Zalo hạn chế camera. Nếu quét không ổn định hãy mở bằng Chrome/Safari.");
    }
 
    html5Qr.stop();
-   document.getElementById("reader").classList.add("hidden");
- },()=>{});
+   reader.classList.add("hidden");
+ });
 }
 
 function calculate(){
- const nsxVal=nsx.value, hsdVal=hsd.value;
- if(!nsxVal||!hsdVal) return alert("Nhập đủ NSX & HSD");
+ const nsxVal=nsxInput.value;
+ const hsdVal=hsdInput.value;
+ if(!nsxVal||!hsdVal){alert("Nhập đủ NSX & HSD");return;}
 
- const nsxDate=new Date(nsxVal), hsdDate=new Date(hsdVal);
- if(hsdDate<=nsxDate) return alert("HSD phải lớn hơn NSX");
+ const nsx=new Date(nsxVal);
+ const hsd=new Date(hsdVal);
+ if(hsd<=nsx){alert("HSD phải lớn hơn NSX");return;}
 
- const totalDays=(hsdDate-nsxDate)/86400000;
- const date30=new Date(nsxDate.getTime()+totalDays*0.7*86400000);
- const date20=new Date(nsxDate.getTime()+totalDays*0.8*86400000);
+ const totalDays=(hsd-nsx)/86400000;
+ const date30=new Date(nsx.getTime()+totalDays*0.7*86400000);
+ const date20=new Date(nsx.getTime()+totalDays*0.8*86400000);
  const today=new Date();
 
- let warn30="",warn20="",blink30="",blink20="",level="safe";
+ let warn30="",warn20="",blink30="",blink20="";
+ let flag30="Bình thường",flag20="Bình thường";
 
  if(today>=date30){
-  warn30=`<div class="warning30 mt-1">⚠ Cảnh báo: Thông tin quản lý giải tồn</div>`;
-  blink30="blink30"; level="30";
+   warn30=`<div class="warning30 mt-1">⚠ Cảnh báo: Thông tin quản lý giải tồn</div>`;
+   blink30="blink30"; flag30="Giải tồn";
  }
 
  if(today>=date20){
-  warn20=`<div class="warning20 mt-1">⚠ Dưới 20% HSD – Xử lý theo quy định</div>`;
-  blink20="blink20"; level="20";
+   warn20=`<div class="warning20 mt-1">⚠ Dưới 20% HSD – Rút hàng theo quy định</div>`;
+   blink20="blink20"; flag20="Rút hàng";
  }
 
- result.innerHTML=`
-<div class="border rounded-lg p-3 mb-3 bg-amber-50 ${blink30}">
+ resultDiv.innerHTML=`
+<div class="border rounded-lg p-3 mb-3 ${blink30}">
 <b>MỐC 30%</b><br>📅 ${date30.toLocaleDateString("vi-VN")}
-${warn30||"<div class='text-green-700 mt-1'>✓ Chưa đến ngưỡng</div>"}
+${warn30||"<div class='text-green-700 mt-1'>Trong ngưỡng an toàn</div>"}
 </div>
 
-<div class="border rounded-lg p-3 bg-red-50 ${blink20}">
+<div class="border rounded-lg p-3 ${blink20}">
 <b>MỐC 20% (LÙI HÀNG)</b><br>📅 ${date20.toLocaleDateString("vi-VN")}
-${warn20||"<div class='text-green-700 mt-1'>✓ Chưa đến ngưỡng</div>"}
-</div>
-`;
+${warn20||"<div class='text-green-700 mt-1'>Trong ngưỡng an toàn</div>"}
+</div>`;
 
- saveHistory(date30,date20,level);
-}
-
-function saveHistory(d30,d20,level){
- let h=JSON.parse(localStorage.getItem(historyKey)||"[]");
- h.unshift({
-  barcode:barcode.value,
-  m30:d30.toLocaleDateString("vi-VN"),
-  m20:d20.toLocaleDateString("vi-VN"),
-  level,time:new Date().toLocaleString("vi-VN")
- });
- localStorage.setItem(historyKey,JSON.stringify(h));
+ saveHistory(date30,date20,flag30,flag20);
  renderHistory();
 }
 
+function saveHistory(d30,d20,f30,f20){
+ let h=JSON.parse(localStorage.getItem(historyKey)||"[]");
+ h.unshift({
+  Barcode:barcodeInput.value,
+  NSX:nsxInput.value,
+  HSD:hsdInput.value,
+  CanhBao30:f30,
+  CanhBao20:f20,
+  Time:new Date().toLocaleString("vi-VN")
+ });
+ localStorage.setItem(historyKey,JSON.stringify(h));
+}
+
 function renderHistory(){
- const h=JSON.parse(localStorage.getItem(historyKey)||"[]");
- history.innerHTML=h.map(x=>`<div>${x.barcode||'---'} | 30%:${x.m30} | 20%:${x.m20}</div>`).join("");
- statistic.innerHTML=`📦 SP cần giải tồn (≤30%): <b>${h.filter(x=>x.level!="safe").length}</b>`;
+ let h=JSON.parse(localStorage.getItem(historyKey)||"[]");
+ historyDiv.innerHTML=h.map(i=>`<div>📦 ${i.Barcode||"-"} | ${i.NSX} → ${i.HSD} | 30%: ${i.CanhBao30} | 20%: ${i.CanhBao20}</div>`).join("");
+
+ let g=h.filter(i=>i.CanhBao30==="Giải tồn").length;
+ let r=h.filter(i=>i.CanhBao20==="Rút hàng").length;
+ statDiv.innerHTML=`📊 Giải tồn: <b>${g}</b> | Rút hàng: <b>${r}</b>`;
 }
 
 function exportExcel(){
- const h=JSON.parse(localStorage.getItem(historyKey)||"[]");
+ let h=JSON.parse(localStorage.getItem(historyKey)||"[]");
+ if(!h.length){alert("Chưa có dữ liệu");return;}
+
  const ws=XLSX.utils.json_to_sheet(h);
  const wb=XLSX.utils.book_new();
  XLSX.utils.book_append_sheet(wb,ws,"HSD");
- XLSX.writeFile(wb,"saigoncoop_hsd.xlsx");
+ XLSX.writeFile(wb,"quan_ly_hsd.xlsx");
 }
 
 function clearHistory(){
@@ -179,11 +192,12 @@ function clearHistory(){
 }
 
 function resetForm(){
- barcode.value=""; nsx.value=""; hsd.value=""; result.innerHTML="";
+ nsxInput.value="";
+ hsdInput.value="";
+ resultDiv.innerHTML="";
 }
 
 renderHistory();
 </script>
-
 </body>
 </html>

@@ -16,54 +16,53 @@ body{background:#f3f4f6}
 .brand-text{color:#c40018}
 .warning20{color:#b91c1c;font-weight:700}
 .warning30{color:#d97706;font-weight:700}
+
+.blink30{animation:blink30 1.5s ease-in-out infinite}
+@keyframes blink30{0%,100%{opacity:1}50%{opacity:.6}}
+
+.blink20{
+ animation:blink20 .8s ease-in-out infinite;
+ border-color:#dc2626!important;
+}
+@keyframes blink20{
+ 0%{box-shadow:0 0 0 rgba(220,38,38,0);background:#fff1f2}
+ 50%{box-shadow:0 0 16px rgba(220,38,38,.9);background:#fee2e2}
+ 100%{box-shadow:0 0 0 rgba(220,38,38,0);background:#fff1f2}
+}
 </style>
 </head>
 
 <body class="max-w-xl mx-auto p-3">
 
-<!-- HEADER -->
 <div class="flex items-center gap-3 mb-4 p-3 rounded-lg brand-bg text-white">
-  <img src="logo.png" class="h-10 bg-white p-1 rounded" onerror="this.style.display='none'">
   <div>
     <div class="font-bold text-lg">HỆ THỐNG QUẢN LÝ HSD</div>
     <div class="text-sm opacity-90">Saigon Co.op – Kiểm soát hạn sử dụng</div>
   </div>
 </div>
 
-<!-- FORM -->
 <div class="card p-4 space-y-3">
 
-<div>
 <label class="font-semibold">Barcode sản phẩm</label>
-<div class="flex gap-2 mt-1">
+<div class="flex gap-2">
 <input id="barcode" class="border p-2 rounded w-full">
 <button onclick="startScan()" class="brand-bg text-white px-3 rounded">Quét</button>
-</div>
-</div>
-
-<div>
-<label class="font-semibold">Camera</label>
-<select id="cameraSelect" class="border p-2 rounded w-full mt-1"></select>
 </div>
 
 <div id="reader" class="hidden mt-2"></div>
 
-<div>
 <label class="font-semibold">Ngày sản xuất (NSX)</label>
-<input type="date" id="nsx" class="border p-2 rounded w-full mt-1">
-</div>
+<input type="date" id="nsx" class="border p-2 rounded w-full">
 
-<div>
 <label class="font-semibold">Hạn sử dụng (HSD)</label>
-<input type="date" id="hsd" class="border p-2 rounded w-full mt-1">
-</div>
+<input type="date" id="hsd" class="border p-2 rounded w-full">
 
 <div class="grid grid-cols-2 gap-2 pt-2">
 <button onclick="calculate()" class="brand-bg text-white py-2 rounded font-semibold">TÍNH KẾT QUẢ</button>
 <button onclick="resetForm()" class="bg-gray-500 text-white py-2 rounded font-semibold">TÍNH LẠI</button>
 </div>
 
-<div id="result" class="text-center font-semibold pt-2"></div>
+<div id="result" class="pt-2"></div>
 
 <div class="grid grid-cols-2 gap-2 pt-2">
 <button onclick="exportExcel()" class="bg-slate-700 text-white py-2 rounded">Xuất Excel</button>
@@ -71,10 +70,8 @@ body{background:#f3f4f6}
 </div>
 
 <div id="statistic" class="text-sm pt-2"></div>
-
 </div>
 
-<!-- HISTORY -->
 <div class="card p-3 mt-4">
 <h2 class="font-bold brand-text mb-2">Lịch sử tính toán</h2>
 <div id="history" class="text-sm space-y-1 max-h-64 overflow-auto"></div>
@@ -82,89 +79,79 @@ body{background:#f3f4f6}
 
 <script>
 const historyKey="coop_hsd_history";
-const nsxInput=document.getElementById("nsx");
-const hsdInput=document.getElementById("hsd");
-const barcode=document.getElementById("barcode");
-const result=document.getElementById("result");
-const historyDiv=document.getElementById("history");
-const statDiv=document.getElementById("statistic");
-const reader=document.getElementById("reader");
-const cameraSelect=document.getElementById("cameraSelect");
+const nsxInput=nsx.value, hsdInput=hsd.value;
 
 let html5Qr=null;
 
-/* CAMERA */
-Html5Qrcode.getCameras().then(cams=>{
- cams.forEach(c=>{
-  const op=document.createElement("option");
-  op.value=c.id; op.text=c.label||"Camera";
-  cameraSelect.appendChild(op);
- });
-});
-
 async function startScan(){
- reader.classList.remove("hidden");
- if(html5Qr) await html5Qr.stop().catch(()=>{});
+ document.getElementById("reader").classList.remove("hidden");
 
- html5Qr=new Html5Qrcode("reader");
- const camId=cameraSelect.value;
+ if(!html5Qr) html5Qr=new Html5Qrcode("reader");
 
- html5Qr.start(camId,{fps:10,qrbox:250},
-  async code=>{
+ html5Qr.start({facingMode:"environment"},{fps:10,qrbox:250},
+ code=>{
    barcode.value=code;
-   await html5Qr.stop().catch(()=>{});
-   reader.classList.add("hidden");
-  },()=>{}
- );
+
+   if(navigator.vibrate) navigator.vibrate(200);
+
+   const audio=new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
+   audio.play().catch(()=>{});
+
+   if(navigator.userAgent.toLowerCase().includes("zalo")){
+     alert("⚠ Lưu ý: Zalo hạn chế camera – nếu quét không ổn định hãy mở bằng Chrome/Safari.");
+   }
+
+   html5Qr.stop();
+   document.getElementById("reader").classList.add("hidden");
+ },()=>{});
 }
 
-/* CALCULATE */
 function calculate(){
- const nsxVal=nsxInput.value;
- const hsdVal=hsdInput.value;
- if(!nsxVal||!hsdVal){alert("Nhập đủ NSX và HSD");return;}
+ const nsxVal=nsx.value, hsdVal=hsd.value;
+ if(!nsxVal||!hsdVal) return alert("Nhập đủ NSX & HSD");
 
- const nsx=new Date(nsxVal);
- const hsd=new Date(hsdVal);
- if(hsd<=nsx){alert("HSD phải lớn hơn NSX");return;}
+ const nsxDate=new Date(nsxVal), hsdDate=new Date(hsdVal);
+ if(hsdDate<=nsxDate) return alert("HSD phải lớn hơn NSX");
 
- const totalDays=(hsd-nsx)/(1000*3600*24);
- const date30=new Date(nsx.getTime()+totalDays*0.7*86400000);
- const date20=new Date(nsx.getTime()+totalDays*0.8*86400000);
+ const totalDays=(hsdDate-nsxDate)/86400000;
+ const date30=new Date(nsxDate.getTime()+totalDays*0.7*86400000);
+ const date20=new Date(nsxDate.getTime()+totalDays*0.8*86400000);
  const today=new Date();
 
- let level="safe";
- if(today>=date20) level="20";
- else if(today>=date30) level="30";
+ let warn30="",warn20="",blink30="",blink20="",level="safe";
 
- let msg="";
- if(level==="20") msg=`<div class="warning20">⚠ DƯỚI 20% HSD – ĐỀ XUẤT XỬ LÝ THEO QUY ĐỊNH</div>`;
- else if(level==="30") msg=`<div class="warning30">⚠ CẢNH BÁO: THÔNG TIN ĐẾN QUẢN LÝ GIẢI TỒN</div>`;
- else msg=`<div class="text-green-700">✓ Còn trong ngưỡng an toàn</div>`;
+ if(today>=date30){
+  warn30=`<div class="warning30 mt-1">⚠ Cảnh báo: Thông tin quản lý giải tồn</div>`;
+  blink30="blink30"; level="30";
+ }
+
+ if(today>=date20){
+  warn20=`<div class="warning20 mt-1">⚠ Dưới 20% HSD – Xử lý theo quy định</div>`;
+  blink20="blink20"; level="20";
+ }
 
  result.innerHTML=`
-<div>Ngày mốc 30%: ${date30.toLocaleDateString('vi-VN')}</div>
-<div>Ngày mốc 20%: ${date20.toLocaleDateString('vi-VN')}</div>
-${msg}`;
+<div class="border rounded-lg p-3 mb-3 bg-amber-50 ${blink30}">
+<b>MỐC 30%</b><br>📅 ${date30.toLocaleDateString("vi-VN")}
+${warn30||"<div class='text-green-700 mt-1'>✓ Chưa đến ngưỡng</div>"}
+</div>
+
+<div class="border rounded-lg p-3 bg-red-50 ${blink20}">
+<b>MỐC 20% (LÙI HÀNG)</b><br>📅 ${date20.toLocaleDateString("vi-VN")}
+${warn20||"<div class='text-green-700 mt-1'>✓ Chưa đến ngưỡng</div>"}
+</div>
+`;
 
  saveHistory(date30,date20,level);
 }
 
-function resetForm(){
- barcode.value=""; nsxInput.value=""; hsdInput.value=""; result.innerHTML="";
-}
-
-/* HISTORY */
 function saveHistory(d30,d20,level){
  let h=JSON.parse(localStorage.getItem(historyKey)||"[]");
  h.unshift({
-  barcode:barcode.value||"",
-  nsx:nsxInput.value,
-  hsd:hsdInput.value,
-  m30:d30.toLocaleDateString('vi-VN'),
-  m20:d20.toLocaleDateString('vi-VN'),
-  level,
-  time:new Date().toLocaleString('vi-VN')
+  barcode:barcode.value,
+  m30:d30.toLocaleDateString("vi-VN"),
+  m20:d20.toLocaleDateString("vi-VN"),
+  level,time:new Date().toLocaleString("vi-VN")
  });
  localStorage.setItem(historyKey,JSON.stringify(h));
  renderHistory();
@@ -172,13 +159,16 @@ function saveHistory(d30,d20,level){
 
 function renderHistory(){
  const h=JSON.parse(localStorage.getItem(historyKey)||"[]");
- historyDiv.innerHTML=h.map(x=>`
-<div class="border-b pb-1 ${x.level==='20'?'warning20':x.level==='30'?'warning30':''}">
-<b>${x.barcode||'---'}</b> | 30%:${x.m30} | 20%:${x.m20}
-</div>`).join("");
+ history.innerHTML=h.map(x=>`<div>${x.barcode||'---'} | 30%:${x.m30} | 20%:${x.m20}</div>`).join("");
+ statistic.innerHTML=`📦 SP cần giải tồn (≤30%): <b>${h.filter(x=>x.level!="safe").length}</b>`;
+}
 
- const count30=h.filter(x=>x.level==="30"||x.level==="20").length;
- statDiv.innerHTML=`📦 Sản phẩm cần giải tồn (≤30%): <b>${count30}</b>`;
+function exportExcel(){
+ const h=JSON.parse(localStorage.getItem(historyKey)||"[]");
+ const ws=XLSX.utils.json_to_sheet(h);
+ const wb=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb,ws,"HSD");
+ XLSX.writeFile(wb,"saigoncoop_hsd.xlsx");
 }
 
 function clearHistory(){
@@ -188,15 +178,8 @@ function clearHistory(){
  }
 }
 
-/* EXPORT */
-function exportExcel(){
- const h=JSON.parse(localStorage.getItem(historyKey)||"[]");
- if(!h.length){alert("Không có dữ liệu");return;}
-
- const ws=XLSX.utils.json_to_sheet(h);
- const wb=XLSX.utils.book_new();
- XLSX.utils.book_append_sheet(wb,ws,"HSD");
- XLSX.writeFile(wb,"saigoncoop_hsd.xlsx");
+function resetForm(){
+ barcode.value=""; nsx.value=""; hsd.value=""; result.innerHTML="";
 }
 
 renderHistory();

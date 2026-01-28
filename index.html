@@ -192,11 +192,11 @@ function calculate(){
  const bc=barcode.value||"unknown";
 
  if(today>=date20){
-  if(!hasPopupShown(bc,"20")){showPopup("20");markPopupShown(bc,"20")}
- }
- else if(today>=date30){
-  if(!hasPopupShown(bc,"30")){showPopup("30");markPopupShown(bc,"30")}
- }
+  showPopup("20");
+}
+else if(today>=date30){
+  showPopup("30");
+}
 }
 
 function saveHistory(f30,f20){

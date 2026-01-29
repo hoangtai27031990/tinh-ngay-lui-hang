@@ -52,8 +52,7 @@ body{background:#f3f4f6}
 <!-- Sidebar -->
 <div id="sidebar">
   <div class="p-4 border-b text-center">
-    <!-- LOGO LOCAL -->
-    <img src="logo.png" width="140" class="mx-auto mb-2" alt="Saigon Co.op Logo">
+    <img src="logo.png" width="140" class="mx-auto mb-2">
     <div class="font-bold brand-text">Saigon Co.op</div>
   </div>
   <div class="p-3 space-y-2">
@@ -65,7 +64,7 @@ body{background:#f3f4f6}
 
 <div class="flex justify-between items-center mb-4 p-3 rounded-lg brand-bg text-white">
   <div class="flex items-center gap-2">
-    <img src="logo.png" class="h-8 bg-white rounded p-1" alt="logo">
+    <img src="logo.png" class="h-8 bg-white rounded p-1">
     <div>
       <div class="font-bold text-lg">HỆ THỐNG QUẢN LÝ HSD</div>
       <div class="text-sm opacity-90">Saigon Co.op</div>
@@ -138,7 +137,6 @@ body{background:#f3f4f6}
 <script>
 const historyKey="coop_hsd_history";
 const printKey="coop_print_history";
-const popupHistoryKey="coop_hsd_popup_shown";
 
 const sidebar=document.getElementById("sidebar");
 const overlay=document.getElementById("overlay");
@@ -189,14 +187,8 @@ function calculate(){
 
  saveHistory(f30,f20);
 
- const bc=barcode.value||"unknown";
-
- if(today>=date20){
-  showPopup("20");
-}
-else if(today>=date30){
-  showPopup("30");
-}
+ if(today>=date20) showPopup("20");
+ else if(today>=date30) showPopup("30");
 }
 
 function saveHistory(f30,f20){
@@ -236,18 +228,29 @@ function renderHistory(){
 }
 
 function clearHistory(){localStorage.removeItem(historyKey);renderHistory()}
+
+/* ===== EXPORT EXCEL – ĐÃ VÁ ===== */
 function exportExcel(){
  const h=JSON.parse(localStorage.getItem(historyKey)||"[]");
  if(!h.length){alert("Không có dữ liệu");return}
+
  const ws=XLSX.utils.json_to_sheet(h);
  const wb=XLSX.utils.book_new();
  XLSX.utils.book_append_sheet(wb,ws,"HSD");
  XLSX.writeFile(wb,"saigoncoop_hsd.xlsx");
+
+ // XÓA LỊCH SỬ SAU KHI XUẤT
+ localStorage.removeItem(historyKey);
+ renderHistory();
+
+ // POPUP THÀNH CÔNG
+ showPopup("export");
 }
+
 function resetForm(){barcode.value="";nsx.value="";hsd.value="";result.innerHTML=""}
 renderHistory();
 
-/* PRINT TAB */
+/* ===== PRINT TAB ===== */
 function startPrintScan(){
  printReader.classList.remove("hidden");
  if(!qr2) qr2=new Html5Qrcode("printReader");
@@ -269,29 +272,38 @@ function renderPrint(){
   .map(([b,q]) => `<div class="chat-item">${b},${q}</div>`)
   .join("");
 }
-function exportText(){
-  const d = JSON.parse(localStorage.getItem(printKey) || "{}");
-  if(!Object.keys(d).length){
-    alert("Không có dữ liệu");
-    return;
-  }
 
-  const txt = Object.entries(d)
-    .map(([b,q]) => `${b},${q}`)
-    .join("\n");
-
-  const blob = new Blob([txt], {type:"text/plain"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "barcode_print.txt";
-  a.click();
-
-  // ===== TỰ ĐỘNG RESET SAU KHI XUẤT =====
-  localStorage.removeItem(printKey);
-  renderPrint();
+function clearPrintHistory(){
+ localStorage.removeItem(printKey);
+ renderPrint();
 }
 
-/* POPUP */
+/* ===== EXPORT TXT – FINAL ===== */
+function exportText(){
+ const d = JSON.parse(localStorage.getItem(printKey) || "{}");
+ if(!Object.keys(d).length){
+  alert("Không có dữ liệu");
+  return;
+ }
+
+ const txt = Object.entries(d).map(([b,q]) => `${b},${q}`).join("\n");
+ const blob = new Blob([txt], {type:"text/plain;charset=utf-8"});
+ const url = URL.createObjectURL(blob);
+
+ const a=document.createElement("a");
+ a.href=url; a.download="barcode_print.txt";
+ document.body.appendChild(a);
+ a.click();
+ document.body.removeChild(a);
+ URL.revokeObjectURL(url);
+
+ localStorage.removeItem(printKey);
+ renderPrint();
+
+ showPopup("export");
+}
+
+/* ===== POPUP ===== */
 function showPopup(type){
  const popup=document.getElementById("alertPopup");
  const box=document.getElementById("popupBox");
@@ -302,20 +314,17 @@ function showPopup(type){
 
  if(type==="30"){title.innerText="CẢNH BÁO MỐC 30%";msg.innerText="Báo cáo quản lý để thực hiện giải tồn.";box.classList.add("popup-30")}
  if(type==="20"){title.innerText="CẢNH BÁO MỐC 20%";msg.innerText="Rút hàng khỏi quầy ngay.";box.classList.add("popup-20")}
+ if(type==="export"){title.innerText="✅ XUẤT FILE THÀNH CÔNG";msg.innerText="Dữ liệu đã được tải về và hệ thống đã sẵn sàng cho lần tiếp theo.";}
 
- popup.classList.remove("hidden"); popup.classList.add("flex");
-}
-function closePopup(){alertPopup.classList.add("hidden");alertPopup.classList.remove("flex")}
+ popup.classList.remove("hidden");
+ popup.classList.add("flex");
 
-function hasPopupShown(barcode,type){
- const data=JSON.parse(localStorage.getItem(popupHistoryKey)||"{}");
- return data[barcode]?.[type]===true;
+ if(type==="export") setTimeout(closePopup,2500);
 }
-function markPopupShown(barcode,type){
- const data=JSON.parse(localStorage.getItem(popupHistoryKey)||"{}");
- if(!data[barcode]) data[barcode]={};
- data[barcode][type]=true;
- localStorage.setItem(popupHistoryKey,JSON.stringify(data));
+
+function closePopup(){
+ alertPopup.classList.add("hidden");
+ alertPopup.classList.remove("flex");
 }
 </script>
 

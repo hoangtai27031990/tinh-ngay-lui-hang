@@ -62,7 +62,6 @@ body{background:#f3f4f6}
 </div>
 <div id="overlay" onclick="toggleMenu()"></div>
 
-<!-- HEADER -->
 <div class="flex justify-between items-center mb-4 p-3 rounded-lg brand-bg text-white">
   <div class="flex items-center gap-2">
     <img src="logo.png" class="h-8 bg-white rounded p-1">
@@ -74,9 +73,14 @@ body{background:#f3f4f6}
   <button onclick="toggleMenu()" class="text-2xl">☰</button>
 </div>
 
-<div id="mainApp">...</div>
+<!-- ===== MAIN APP (GIỮ NGUYÊN) ===== -->
+<div id="mainApp">
+  <!-- phần quản lý HSD của bạn giữ nguyên -->
+</div>
 
+<!-- ===== PRINT APP ===== -->
 <div id="printApp" class="hidden card p-4">
+
 <h2 class="font-bold brand-text mb-3">In bảng giá quầy</h2>
 
 <div class="flex flex-wrap gap-2 mb-2">
@@ -87,12 +91,13 @@ body{background:#f3f4f6}
 
 <div id="printReader" class="hidden mb-2"></div>
 <div class="chat-box" id="printHistory"></div>
+
 </div>
 
 <script>
-/* ... toàn bộ code giữ nguyên phía trên ... */
+const printKey="coop_print_history";
 
-/* ===== EXPORT TXT (ĐÃ SỬA) ===== */
+/* ===== EXPORT TXT – FINAL FIX ===== */
 function exportText(){
   const d = JSON.parse(localStorage.getItem(printKey) || "{}");
   if(!Object.keys(d).length){
@@ -104,17 +109,21 @@ function exportText(){
     .map(([b,q]) => `${b},${q}`)
     .join("\n");
 
-  const blob = new Blob([txt], {type:"text/plain"});
+  const blob = new Blob([txt], { type:"text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
+  a.href = url;
   a.download = "barcode_print.txt";
+  document.body.appendChild(a);
   a.click();
 
-  // Reset dữ liệu
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
   localStorage.removeItem(printKey);
   renderPrint();
 
-  // Popup thành công
   showPopup("export");
 }
 
@@ -126,18 +135,6 @@ function showPopup(type){
  const msg=document.getElementById("popupMsg");
 
  box.className="bg-white p-5 rounded-xl w-[90%] max-w-sm text-center";
-
- if(type==="30"){
-   title.innerText="CẢNH BÁO MỐC 30%";
-   msg.innerText="Báo cáo quản lý để thực hiện giải tồn.";
-   box.classList.add("popup-30");
- }
-
- if(type==="20"){
-   title.innerText="CẢNH BÁO MỐC 20%";
-   msg.innerText="Rút hàng khỏi quầy ngay.";
-   box.classList.add("popup-20");
- }
 
  if(type==="export"){
    title.innerText="✅ XUẤT FILE THÀNH CÔNG";
@@ -155,6 +152,19 @@ function showPopup(type){
 function closePopup(){
  alertPopup.classList.add("hidden");
  alertPopup.classList.remove("flex");
+}
+
+/* ===== PRINT HELPERS ===== */
+function renderPrint(){
+ const d=JSON.parse(localStorage.getItem(printKey)||"{}");
+ printHistory.innerHTML = Object.entries(d)
+  .map(([b,q]) => `<div class="chat-item">${b},${q}</div>`)
+  .join("");
+}
+
+function clearPrintHistory(){
+ localStorage.removeItem(printKey);
+ renderPrint();
 }
 </script>
 

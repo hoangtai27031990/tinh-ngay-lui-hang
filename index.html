@@ -286,6 +286,24 @@ function exportText(){
   a.download = "barcode_print.txt";
   a.click();
 
+  // Reset dữ liệu
+  localStorage.removeItem(printKey);
+  renderPrint();
+
+  // ✅ Hiển thị popup thành công
+  showPopup("export");
+}
+
+  const txt = Object.entries(d)
+    .map(([b,q]) => `${b},${q}`)
+    .join("\n");
+
+  const blob = new Blob([txt], {type:"text/plain"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "barcode_print.txt";
+  a.click();
+
   // ===== TỰ ĐỘNG RESET SAU KHI XUẤT =====
   localStorage.removeItem(printKey);
   renderPrint();

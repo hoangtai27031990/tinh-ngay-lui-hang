@@ -265,12 +265,14 @@ function addBarcode(code){
 
 function renderPrint(){
  const d=JSON.parse(localStorage.getItem(printKey)||"{}");
- printHistory.innerHTML=Object.entries(d).map(([b,q])=>`<div class="chat-item">${b},${q};</div>`).join("");
+ printHistory.innerHTML = Object.entries(d)
+  .map(([b,q]) => `<div class="chat-item">${b},${q}</div>`)
+  .join("");
 }
 function exportText(){
  const d=JSON.parse(localStorage.getItem(printKey)||"{}");
  if(!Object.keys(d).length){alert("Không có dữ liệu");return}
- const txt=Object.entries(d).map(([b,q])=>`${b},${q};`).join("\n");
+ const txt = Object.entries(d).map(([b,q]) => `${b},${q}`).join("\n");
  const blob=new Blob([txt],{type:"text/plain"});
  const a=document.createElement("a");
  a.href=URL.createObjectURL(blob); a.download="barcode_print.txt"; a.click();

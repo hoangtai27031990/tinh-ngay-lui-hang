@@ -300,10 +300,31 @@ function showPopup(type){
 
  box.className="bg-white p-5 rounded-xl w-[90%] max-w-sm text-center";
 
- if(type==="30"){title.innerText="CẢNH BÁO MỐC 30%";msg.innerText="Báo cáo quản lý để thực hiện giải tồn.";box.classList.add("popup-30")}
- if(type==="20"){title.innerText="CẢNH BÁO MỐC 20%";msg.innerText="Rút hàng khỏi quầy ngay.";box.classList.add("popup-20")}
+ if(type==="30"){
+   title.innerText="CẢNH BÁO MỐC 30%";
+   msg.innerText="Báo cáo quản lý để thực hiện giải tồn.";
+   box.classList.add("popup-30");
+ }
 
- popup.classList.remove("hidden"); popup.classList.add("flex");
+ if(type==="20"){
+   title.innerText="CẢNH BÁO MỐC 20%";
+   msg.innerText="Rút hàng khỏi quầy ngay.";
+   box.classList.add("popup-20");
+ }
+
+ // ✅ POPUP XUẤT FILE THÀNH CÔNG
+ if(type==="export"){
+   title.innerText="✅ XUẤT FILE THÀNH CÔNG";
+   msg.innerText="Danh sách đã được tải về và hệ thống đã sẵn sàng cho đợt quét mới.";
+ }
+
+ popup.classList.remove("hidden");
+ popup.classList.add("flex");
+
+ // Tự đóng sau 2.5 giây
+ if(type==="export"){
+   setTimeout(closePopup, 2500);
+ }
 }
 function closePopup(){alertPopup.classList.add("hidden");alertPopup.classList.remove("flex")}
 

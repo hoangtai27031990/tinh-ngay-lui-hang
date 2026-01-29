@@ -270,15 +270,26 @@ function renderPrint(){
   .join("");
 }
 function exportText(){
- const d=JSON.parse(localStorage.getItem(printKey)||"{}");
- if(!Object.keys(d).length){alert("Không có dữ liệu");return}
- const txt = Object.entries(d).map(([b,q]) => `${b},${q}`).join("\n");
- const blob=new Blob([txt],{type:"text/plain"});
- const a=document.createElement("a");
- a.href=URL.createObjectURL(blob); a.download="barcode_print.txt"; a.click();
+  const d = JSON.parse(localStorage.getItem(printKey) || "{}");
+  if(!Object.keys(d).length){
+    alert("Không có dữ liệu");
+    return;
+  }
+
+  const txt = Object.entries(d)
+    .map(([b,q]) => `${b},${q}`)
+    .join("\n");
+
+  const blob = new Blob([txt], {type:"text/plain"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "barcode_print.txt";
+  a.click();
+
+  // ===== TỰ ĐỘNG RESET SAU KHI XUẤT =====
+  localStorage.removeItem(printKey);
+  renderPrint();
 }
-function clearPrintHistory(){localStorage.removeItem(printKey);renderPrint()}
-renderPrint();
 
 /* POPUP */
 function showPopup(type){

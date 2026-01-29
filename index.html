@@ -290,7 +290,7 @@ function exportText(){
   localStorage.removeItem(printKey);
   renderPrint();
 
-  // ✅ Hiển thị popup thành công
+  // Popup thành công
   showPopup("export");
 }
 
@@ -304,9 +304,12 @@ function exportText(){
   a.download = "barcode_print.txt";
   a.click();
 
-  // ===== TỰ ĐỘNG RESET SAU KHI XUẤT =====
+  // Reset dữ liệu
   localStorage.removeItem(printKey);
   renderPrint();
+
+  // ✅ Hiển thị popup thành công
+  showPopup("export");
 }
 
 /* POPUP */

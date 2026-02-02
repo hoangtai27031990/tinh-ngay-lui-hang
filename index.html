@@ -149,12 +149,23 @@ function showPrint(){mainApp.classList.add("hidden");printApp.classList.remove("
 
 let qr=null, qr2=null, currentFilter="all";
 
+/* ===== TỐI ƯU QUÉT BARCODE ===== */
+const scanConfig={
+ fps:15,
+ aspectRatio:1.777,
+ disableFlip:true,
+ qrbox:{width:300,height:120},
+ supportedScanTypes:[Html5QrcodeScanType.SCAN_TYPE_CAMERA]
+};
+
 function startScan(){
  const r=document.getElementById("reader");
  r.classList.remove("hidden");
  if(!qr) qr=new Html5Qrcode("reader");
- qr.start({facingMode:"environment"},{fps:10,qrbox:250},code=>{
-  barcode.value=code; qr.stop(); r.classList.add("hidden");
+ qr.start({facingMode:"environment"},scanConfig,code=>{
+  barcode.value=code;
+  qr.stop().then(()=>qr.clear());
+  r.classList.add("hidden");
  });
 }
 
@@ -229,7 +240,6 @@ function renderHistory(){
 
 function clearHistory(){localStorage.removeItem(historyKey);renderHistory()}
 
-/* ===== EXPORT EXCEL – ĐÃ VÁ ===== */
 function exportExcel(){
  const h=JSON.parse(localStorage.getItem(historyKey)||"[]");
  if(!h.length){alert("Không có dữ liệu");return}
@@ -239,23 +249,21 @@ function exportExcel(){
  XLSX.utils.book_append_sheet(wb,ws,"HSD");
  XLSX.writeFile(wb,"saigoncoop_hsd.xlsx");
 
- // XÓA LỊCH SỬ SAU KHI XUẤT
  localStorage.removeItem(historyKey);
  renderHistory();
-
- // POPUP THÀNH CÔNG
  showPopup("export");
 }
 
 function resetForm(){barcode.value="";nsx.value="";hsd.value="";result.innerHTML=""}
 renderHistory();
 
-/* ===== PRINT TAB ===== */
 function startPrintScan(){
  printReader.classList.remove("hidden");
  if(!qr2) qr2=new Html5Qrcode("printReader");
- qr2.start({facingMode:"environment"},{fps:10,qrbox:250},code=>{
-  addBarcode(code); qr2.stop(); printReader.classList.add("hidden");
+ qr2.start({facingMode:"environment"},scanConfig,code=>{
+  addBarcode(code);
+  qr2.stop().then(()=>qr2.clear());
+  printReader.classList.add("hidden");
  });
 }
 
@@ -268,42 +276,28 @@ function addBarcode(code){
 
 function renderPrint(){
  const d=JSON.parse(localStorage.getItem(printKey)||"{}");
- printHistory.innerHTML = Object.entries(d)
-  .map(([b,q]) => `<div class="chat-item">${b},${q}</div>`)
-  .join("");
+ printHistory.innerHTML=Object.entries(d).map(([b,q])=>`<div class="chat-item">${b},${q}</div>`).join("");
 }
 
-function clearPrintHistory(){
- localStorage.removeItem(printKey);
- renderPrint();
-}
+function clearPrintHistory(){localStorage.removeItem(printKey);renderPrint()}
 
-/* ===== EXPORT TXT – FINAL ===== */
 function exportText(){
- const d = JSON.parse(localStorage.getItem(printKey) || "{}");
- if(!Object.keys(d).length){
-  alert("Không có dữ liệu");
-  return;
- }
+ const d=JSON.parse(localStorage.getItem(printKey)||"{}");
+ if(!Object.keys(d).length){alert("Không có dữ liệu");return}
 
- const txt = Object.entries(d).map(([b,q]) => `${b},${q}`).join("\n");
- const blob = new Blob([txt], {type:"text/plain;charset=utf-8"});
- const url = URL.createObjectURL(blob);
-
+ const txt=Object.entries(d).map(([b,q])=>`${b},${q}`).join("\n");
+ const blob=new Blob([txt],{type:"text/plain;charset=utf-8"});
+ const url=URL.createObjectURL(blob);
  const a=document.createElement("a");
- a.href=url; a.download="barcode_print.txt";
- document.body.appendChild(a);
- a.click();
- document.body.removeChild(a);
+ a.href=url;a.download="barcode_print.txt";
+ document.body.appendChild(a);a.click();document.body.removeChild(a);
  URL.revokeObjectURL(url);
 
  localStorage.removeItem(printKey);
  renderPrint();
-
  showPopup("export");
 }
 
-/* ===== POPUP ===== */
 function showPopup(type){
  const popup=document.getElementById("alertPopup");
  const box=document.getElementById("popupBox");
@@ -314,7 +308,7 @@ function showPopup(type){
 
  if(type==="30"){title.innerText="CẢNH BÁO MỐC 30%";msg.innerText="Báo cáo quản lý để thực hiện giải tồn.";box.classList.add("popup-30")}
  if(type==="20"){title.innerText="CẢNH BÁO MỐC 20%";msg.innerText="Rút hàng khỏi quầy ngay.";box.classList.add("popup-20")}
- if(type==="export"){title.innerText="✅ XUẤT FILE THÀNH CÔNG";msg.innerText="Dữ liệu đã được tải về và hệ thống đã sẵn sàng cho lần tiếp theo.";}
+ if(type==="export"){title.innerText="✅ XUẤT FILE THÀNH CÔNG";msg.innerText="Dữ liệu đã được tải về và hệ thống đã sẵn sàng cho lần tiếp theo."}
 
  popup.classList.remove("hidden");
  popup.classList.add("flex");

@@ -120,6 +120,7 @@ body{background:#f3f4f6}
 </div>
 
 <div id="printApp" class="hidden card p-4">
+
 <h2 class="font-bold brand-text mb-3">In bảng giá quầy</h2>
 
 <div class="flex flex-wrap gap-2 mb-2">
@@ -130,76 +131,192 @@ body{background:#f3f4f6}
 
 <div id="printReader" class="hidden mb-2"></div>
 <div class="chat-box" id="printHistory"></div>
+
 </div>
 
 <script>
-let qr=null, qr2=null;
-let scanTimeoutMain=null;
-let scanTimeoutPrint=null;
-let lastScanned="";
+const historyKey="coop_hsd_history";
+const printKey="coop_print_history";
 
+const sidebar=document.getElementById("sidebar");
+const overlay=document.getElementById("overlay");
+const mainApp=document.getElementById("mainApp");
+const printApp=document.getElementById("printApp");
+
+function toggleMenu(){sidebar.classList.toggle("active");overlay.classList.toggle("active")}
+function showMain(){mainApp.classList.remove("hidden");printApp.classList.add("hidden");toggleMenu()}
+function showPrint(){mainApp.classList.add("hidden");printApp.classList.remove("hidden");toggleMenu()}
+
+let qr=null, qr2=null, currentFilter="all";
+
+/* ===== TỐI ƯU QUÉT BARCODE ===== */
 const scanConfig={
- fps:5,
+ fps:15,
  aspectRatio:1.777,
  disableFlip:true,
- qrbox:(vw)=>{
-  const w=Math.min(vw*0.9,320);
-  return{width:w,height:w*0.35};
- },
- experimentalFeatures:{useBarCodeDetectorIfSupported:true}
+ qrbox:{width:300,height:120},
+ supportedScanTypes:[Html5QrcodeScanType.SCAN_TYPE_CAMERA]
 };
-
-const isEAN13=code=>/^\d{13}$/.test(code);
-
-function safeRestart(instance,startFn,timeoutRef){
- clearTimeout(timeoutRef);
- try{
-  instance.stop().then(()=>{
-   instance.clear();
-   setTimeout(startFn,300);
-  }).catch(()=>{});
- }catch(e){}
-}
 
 function startScan(){
  const r=document.getElementById("reader");
  r.classList.remove("hidden");
  if(!qr) qr=new Html5Qrcode("reader");
- lastScanned="";
-
- qr.start({facingMode:{ideal:"environment"}},scanConfig,code=>{
-  if(code===lastScanned||!isEAN13(code))return;
-  lastScanned=code;
+ qr.start({facingMode:"environment"},scanConfig,code=>{
   barcode.value=code;
-  clearTimeout(scanTimeoutMain);
   qr.stop().then(()=>qr.clear());
   r.classList.add("hidden");
- }).then(()=>{
-  scanTimeoutMain=setTimeout(()=>safeRestart(qr,startScan,scanTimeoutMain),2000);
  });
 }
 
-function startPrintScan(){
- const r=document.getElementById("printReader");
- r.classList.remove("hidden");
- if(!qr2) qr2=new Html5Qrcode("printReader");
- lastScanned="";
+function calculate(){
+ const nsxVal=nsx.value, hsdVal=hsd.value;
+ if(!nsxVal||!hsdVal){alert("Nhập đủ NSX & HSD");return}
+ const nsxD=new Date(nsxVal), hsdD=new Date(hsdVal);
+ if(hsdD<=nsxD){alert("HSD phải lớn hơn NSX");return}
 
- qr2.start({facingMode:{ideal:"environment"}},scanConfig,code=>{
-  if(code===lastScanned||!isEAN13(code))return;
-  lastScanned=code;
+ const total=(hsdD-nsxD)/86400000;
+ const date30=new Date(nsxD.getTime()+total*0.7*86400000);
+ const date20=new Date(nsxD.getTime()+total*0.8*86400000);
+ const today=new Date();
+
+ let warn30="",warn20="",b30="",b20="",f30="Bình thường",f20="Bình thường";
+
+ if(today>=date30){warn30="⚠️ <b>Báo cáo Quản lý giải tồn</b>";b30="blink30";f30="Giải tồn"}
+ if(today>=date20){warn20="⚠️ <b>Rút hàng khỏi quầy</b>";b20="blink20";f20="Rút hàng"}
+
+ result.innerHTML=`
+<div class="border p-3 mb-3 ${b30}">
+<b>MỐC 30%</b><br>📅 ${date30.toLocaleDateString("vi-VN")}
+<div>${warn30||"<span class='text-green-700'>Trong ngưỡng an toàn</span>"}</div>
+</div>
+
+<div class="border p-3 ${b20}">
+<b>MỐC 20%</b><br>📅 ${date20.toLocaleDateString("vi-VN")}
+<div>${warn20||"<span class='text-green-700'>Trong ngưỡng an toàn</span>"}</div>
+</div>`;
+
+ saveHistory(f30,f20);
+
+ if(today>=date20) showPopup("20");
+ else if(today>=date30) showPopup("30");
+}
+
+function saveHistory(f30,f20){
+ let h=JSON.parse(localStorage.getItem(historyKey)||"[]");
+ h.unshift({Barcode:barcode.value,NSX:nsx.value,HSD:hsd.value,"Cảnh báo 30%":f30,"Cảnh báo 20%":f20,"Thời gian":new Date().toLocaleString("vi-VN")});
+ localStorage.setItem(historyKey,JSON.stringify(h));
+ renderHistory();
+}
+
+function setFilter(type){
+ currentFilter=type;
+ document.querySelectorAll(".filter-btn").forEach(b=>b.classList.remove("active"));
+ document.getElementById("f-"+type).classList.add("active");
+ renderHistory();
+}
+
+function renderHistory(){
+ let data=JSON.parse(localStorage.getItem(historyKey)||"[]");
+ if(currentFilter==="30") data=data.filter(x=>x["Cảnh báo 30%"]==="Giải tồn");
+ if(currentFilter==="20") data=data.filter(x=>x["Cảnh báo 20%"]==="Rút hàng");
+
+ if(!data.length){
+  history.innerHTML="<div class='text-gray-400 italic'>Không có dữ liệu phù hợp</div>";
+  statistic.innerHTML="📦 Tổng: 0";
+  return;
+ }
+
+ history.innerHTML=data.map(x=>`
+<div class="border-b pb-1">
+<div><b>Barcode:</b> ${x.Barcode||"-"}</div>
+<div>30%: <span class="${x["Cảnh báo 30%"]==="Giải tồn"?"text-orange-600 font-semibold":"text-green-700"}">${x["Cảnh báo 30%"]}</span>
+ | 20%: <span class="${x["Cảnh báo 20%"]==="Rút hàng"?"text-red-600 font-semibold":"text-green-700"}">${x["Cảnh báo 20%"]}</span></div>
+<div class="text-xs text-gray-500">⏱ ${x["Thời gian"]}</div>
+</div>`).join("");
+
+ statistic.innerHTML=`📦 Tổng: <b>${data.length}</b>`;
+}
+
+function clearHistory(){localStorage.removeItem(historyKey);renderHistory()}
+
+function exportExcel(){
+ const h=JSON.parse(localStorage.getItem(historyKey)||"[]");
+ if(!h.length){alert("Không có dữ liệu");return}
+
+ const ws=XLSX.utils.json_to_sheet(h);
+ const wb=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb,ws,"HSD");
+ XLSX.writeFile(wb,"saigoncoop_hsd.xlsx");
+
+ localStorage.removeItem(historyKey);
+ renderHistory();
+ showPopup("export");
+}
+
+function resetForm(){barcode.value="";nsx.value="";hsd.value="";result.innerHTML=""}
+renderHistory();
+
+function startPrintScan(){
+ printReader.classList.remove("hidden");
+ if(!qr2) qr2=new Html5Qrcode("printReader");
+ qr2.start({facingMode:"environment"},scanConfig,code=>{
   addBarcode(code);
-  clearTimeout(scanTimeoutPrint);
   qr2.stop().then(()=>qr2.clear());
-  r.classList.add("hidden");
- }).then(()=>{
-  scanTimeoutPrint=setTimeout(()=>safeRestart(qr2,startPrintScan,scanTimeoutPrint),2000);
+  printReader.classList.add("hidden");
  });
+}
+
+function addBarcode(code){
+ let d=JSON.parse(localStorage.getItem(printKey)||"{}");
+ d[code]=(d[code]||0)+1;
+ localStorage.setItem(printKey,JSON.stringify(d));
+ renderPrint();
+}
+
+function renderPrint(){
+ const d=JSON.parse(localStorage.getItem(printKey)||"{}");
+ printHistory.innerHTML=Object.entries(d).map(([b,q])=>`<div class="chat-item">${b},${q}</div>`).join("");
+}
+
+function clearPrintHistory(){localStorage.removeItem(printKey);renderPrint()}
+
+function exportText(){
+ const d=JSON.parse(localStorage.getItem(printKey)||"{}");
+ if(!Object.keys(d).length){alert("Không có dữ liệu");return}
+
+ const txt=Object.entries(d).map(([b,q])=>`${b},${q}`).join("\n");
+ const blob=new Blob([txt],{type:"text/plain;charset=utf-8"});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement("a");
+ a.href=url;a.download="barcode_print.txt";
+ document.body.appendChild(a);a.click();document.body.removeChild(a);
+ URL.revokeObjectURL(url);
+
+ localStorage.removeItem(printKey);
+ renderPrint();
+ showPopup("export");
+}
+
+function showPopup(type){
+ const popup=document.getElementById("alertPopup");
+ const box=document.getElementById("popupBox");
+ const title=document.getElementById("popupTitle");
+ const msg=document.getElementById("popupMsg");
+
+ box.className="bg-white p-5 rounded-xl w-[90%] max-w-sm text-center";
+
+ if(type==="30"){title.innerText="CẢNH BÁO MỐC 30%";msg.innerText="Báo cáo quản lý để thực hiện giải tồn.";box.classList.add("popup-30")}
+ if(type==="20"){title.innerText="CẢNH BÁO MỐC 20%";msg.innerText="Rút hàng khỏi quầy ngay.";box.classList.add("popup-20")}
+ if(type==="export"){title.innerText="✅ XUẤT FILE THÀNH CÔNG";msg.innerText="Dữ liệu đã được tải về và hệ thống đã sẵn sàng cho lần tiếp theo."}
+
+ popup.classList.remove("hidden");
+ popup.classList.add("flex");
+
+ if(type==="export") setTimeout(closePopup,2500);
 }
 
 function closePopup(){
- clearTimeout(scanTimeoutMain);
- clearTimeout(scanTimeoutPrint);
  alertPopup.classList.add("hidden");
  alertPopup.classList.remove("flex");
 }

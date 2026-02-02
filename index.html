@@ -40,91 +40,166 @@ body{background:#f3f4f6}
 
 <body class="max-w-xl mx-auto p-3">
 
-<!-- UI giữ nguyên hoàn toàn -->
+<!-- POPUP -->
+<div id="alertPopup" class="hidden items-center justify-center">
+  <div id="popupBox">
+    <div id="popupTitle" class="font-bold text-lg mb-2"></div>
+    <div id="popupMsg" class="mb-4"></div>
+    <button onclick="closePopup()" class="brand-bg text-white px-4 py-2 rounded">Đã hiểu</button>
+  </div>
+</div>
+
+<!-- Sidebar -->
+<div id="sidebar">
+  <div class="p-4 border-b text-center">
+    <img src="logo.png" width="140" class="mx-auto mb-2">
+    <div class="font-bold brand-text">Saigon Co.op</div>
+  </div>
+  <div class="p-3 space-y-2">
+    <button onclick="showMain()" class="w-full text-left px-3 py-2 rounded bg-red-50">📦 Quản lý HSD</button>
+    <button onclick="showPrint()" class="w-full text-left px-3 py-2 rounded bg-slate-100">🖨 In bảng giá quầy</button>
+  </div>
+</div>
+<div id="overlay" onclick="toggleMenu()"></div>
+
+<div class="flex justify-between items-center mb-4 p-3 rounded-lg brand-bg text-white">
+  <div class="flex items-center gap-2">
+    <img src="logo.png" class="h-8 bg-white rounded p-1">
+    <div>
+      <div class="font-bold text-lg">HỆ THỐNG QUẢN LÝ HSD</div>
+      <div class="text-sm opacity-90">Saigon Co.op</div>
+    </div>
+  </div>
+  <button onclick="toggleMenu()" class="text-2xl">☰</button>
+</div>
+
+<div id="mainApp">
+
+<div class="card p-4 space-y-3">
+<label class="font-semibold">Barcode sản phẩm</label>
+<div class="flex gap-2">
+<input id="barcode" class="border p-2 rounded w-full">
+<button onclick="startScan()" class="brand-bg text-white px-3 rounded">Quét</button>
+</div>
+
+<div id="reader" class="hidden mt-2"></div>
+
+<label class="font-semibold">Ngày sản xuất (NSX)</label>
+<input type="date" id="nsx" class="border p-2 rounded w-full">
+
+<label class="font-semibold">Hạn sử dụng (HSD)</label>
+<input type="date" id="hsd" class="border p-2 rounded w-full">
+
+<div class="grid grid-cols-2 gap-2 pt-2">
+<button onclick="calculate()" class="brand-bg text-white py-2 rounded font-semibold">TÍNH KẾT QUẢ</button>
+<button onclick="resetForm()" class="bg-gray-500 text-white py-2 rounded font-semibold">TÍNH LẠI</button>
+</div>
+
+<div id="result" class="pt-2"></div>
+
+<div class="grid grid-cols-2 gap-2 pt-2">
+<button onclick="exportExcel()" class="bg-slate-700 text-white py-2 rounded">Xuất Excel</button>
+<button onclick="clearHistory()" class="bg-red-600 text-white py-2 rounded">Xóa lịch sử</button>
+</div>
+
+<div id="statistic" class="text-sm pt-2"></div>
+</div>
+
+<div class="card p-3 mt-4">
+<h2 class="font-bold brand-text mb-2">Lịch sử tính toán</h2>
+
+<div class="flex gap-2 mb-2">
+  <button onclick="setFilter('all')" id="f-all" class="filter-btn active">Tất cả</button>
+  <button onclick="setFilter('30')" id="f-30" class="filter-btn">Giải tồn (30%)</button>
+  <button onclick="setFilter('20')" id="f-20" class="filter-btn">Rút hàng (20%)</button>
+</div>
+
+<div id="history" class="text-sm space-y-1 max-h-64 overflow-auto"></div>
+</div>
+
+</div>
+
+<div id="printApp" class="hidden card p-4">
+<h2 class="font-bold brand-text mb-3">In bảng giá quầy</h2>
+
+<div class="flex flex-wrap gap-2 mb-2">
+<button onclick="startPrintScan()" class="brand-bg text-white px-3 py-2 rounded">📷 Quét barcode</button>
+<button onclick="exportText()" class="bg-slate-700 text-white px-3 py-2 rounded">⬇ Xuất TXT</button>
+<button onclick="clearPrintHistory()" class="bg-red-600 text-white px-3 py-2 rounded">🗑 Xóa</button>
+</div>
+
+<div id="printReader" class="hidden mb-2"></div>
+<div class="chat-box" id="printHistory"></div>
+</div>
 
 <script>
-/************************************
- * FIX & OPTIMIZE – KHÔNG ĐỔI UI
- * Safari iOS + Chrome Android
- * FPS 5 + Auto zoom + Auto refocus
- ************************************/
-
-const historyKey="coop_hsd_history";
-const printKey="coop_print_history";
-
 let qr=null, qr2=null;
-let scanTimer=null;
+let scanTimeoutMain=null;
+let scanTimeoutPrint=null;
 let lastScanned="";
-let scanning=false;
 
-/* ===== SCAN CONFIG – EAN-13 FMCG ===== */
 const scanConfig={
  fps:5,
  aspectRatio:1.777,
  disableFlip:true,
  qrbox:(vw)=>{
   const w=Math.min(vw*0.9,320);
-  return{width:w,height:w*0.32};
+  return{width:w,height:w*0.35};
  },
- experimentalFeatures:{useBarCodeDetectorIfSupported:true},
- formatsToSupport:[Html5QrcodeSupportedFormats.EAN_13]
+ experimentalFeatures:{useBarCodeDetectorIfSupported:true}
 };
 
-function safeStop(instance){
- if(instance && instance.isScanning){
-  return instance.stop().then(()=>instance.clear()).catch(()=>{});
- }
- return Promise.resolve();
-}
+const isEAN13=code=>/^\d{13}$/.test(code);
 
-function scheduleRefocus(instance, starter){
- clearTimeout(scanTimer);
- scanTimer=setTimeout(()=>{
-  if(instance && instance.isScanning) return;
-  safeStop(instance).then(starter);
- },2000);
+function safeRestart(instance,startFn,timeoutRef){
+ clearTimeout(timeoutRef);
+ try{
+  instance.stop().then(()=>{
+   instance.clear();
+   setTimeout(startFn,300);
+  }).catch(()=>{});
+ }catch(e){}
 }
 
 function startScan(){
- if(scanning) return;
- scanning=true;
- reader.classList.remove("hidden");
+ const r=document.getElementById("reader");
+ r.classList.remove("hidden");
  if(!qr) qr=new Html5Qrcode("reader");
  lastScanned="";
 
  qr.start({facingMode:{ideal:"environment"}},scanConfig,code=>{
-  if(code===lastScanned) return;
-  if(!/^\d{13}$/.test(code)) return;
+  if(code===lastScanned||!isEAN13(code))return;
   lastScanned=code;
   barcode.value=code;
-  scanning=false;
-  safeStop(qr);
-  reader.classList.add("hidden");
- }).then(()=>scheduleRefocus(qr,startScan))
- .catch(()=>{scanning=false;});
+  clearTimeout(scanTimeoutMain);
+  qr.stop().then(()=>qr.clear());
+  r.classList.add("hidden");
+ }).then(()=>{
+  scanTimeoutMain=setTimeout(()=>safeRestart(qr,startScan,scanTimeoutMain),2000);
+ });
 }
 
 function startPrintScan(){
- if(scanning) return;
- scanning=true;
- printReader.classList.remove("hidden");
+ const r=document.getElementById("printReader");
+ r.classList.remove("hidden");
  if(!qr2) qr2=new Html5Qrcode("printReader");
  lastScanned="";
 
  qr2.start({facingMode:{ideal:"environment"}},scanConfig,code=>{
-  if(code===lastScanned) return;
-  if(!/^\d{13}$/.test(code)) return;
+  if(code===lastScanned||!isEAN13(code))return;
   lastScanned=code;
   addBarcode(code);
-  scanning=false;
-  safeStop(qr2);
-  printReader.classList.add("hidden");
- }).then(()=>scheduleRefocus(qr2,startPrintScan))
- .catch(()=>{scanning=false;});
+  clearTimeout(scanTimeoutPrint);
+  qr2.stop().then(()=>qr2.clear());
+  r.classList.add("hidden");
+ }).then(()=>{
+  scanTimeoutPrint=setTimeout(()=>safeRestart(qr2,startPrintScan,scanTimeoutPrint),2000);
+ });
 }
 
 function closePopup(){
- clearTimeout(scanTimer);
+ clearTimeout(scanTimeoutMain);
+ clearTimeout(scanTimeoutPrint);
  alertPopup.classList.add("hidden");
  alertPopup.classList.remove("flex");
 }

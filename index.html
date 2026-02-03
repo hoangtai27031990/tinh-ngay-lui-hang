@@ -15,11 +15,11 @@ body{background:#f3f4f6}
 .brand-bg{background:#c40018}
 .brand-text{color:#c40018}
 
+/* ===== BLINK ===== */
 .blink30{animation:blink30 .6s linear infinite;border:2px solid #fb923c}
-@keyframes blink30{0%{background:#fff3e0}50%{background:#ff9800;box-shadow:0 0 20px rgba(251,146,60,1)}100%{background:#fff3e0}}
-
+@keyframes blink30{0%{background:#fff3e0}50%{background:#ff9800}100%{background:#fff3e0}}
 .blink20{animation:blink20 .6s linear infinite;border:2px solid #ef4444}
-@keyframes blink20{0%{background:#fff1f2}50%{background:#fecaca;box-shadow:0 0 20px rgba(239,68,68,1)}100%{background:#fff1f2}}
+@keyframes blink20{0%{background:#fff1f2}50%{background:#fecaca}100%{background:#fff1f2}}
 
 #sidebar{position:fixed;top:0;left:0;width:260px;height:100%;background:#fff;box-shadow:4px 0 16px rgba(0,0,0,.15);transform:translateX(-100%);transition:.3s;z-index:1000}
 #sidebar.active{transform:translateX(0)}
@@ -32,9 +32,39 @@ body{background:#f3f4f6}
 .filter-btn{padding:6px 12px;border-radius:6px;border:1px solid #ddd;background:#f5f5f5;cursor:pointer;font-size:13px}
 .filter-btn.active{background:#2563eb;color:white;border-color:#2563eb}
 
+/* ===== POPUP ===== */
 #alertPopup{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000}
 .popup-30{border:3px solid #fb923c}
 .popup-20{border:3px solid #ef4444}
+
+/* ===== SCAN OVERLAY ===== */
+#reader,#printReader{
+  position:relative;
+  width:100%;
+  height:260px;
+  background:#000;
+}
+.scan-frame{
+  position:absolute;
+  inset:10%;
+  border:2px solid rgba(255,255,255,.4);
+  z-index:10;
+}
+.scan-line{
+  position:absolute;
+  left:5%;
+  width:90%;
+  height:4px;
+  background:red;
+  box-shadow:0 0 12px red;
+  animation:scanMove 1.2s linear infinite;
+  z-index:20;
+}
+@keyframes scanMove{
+  0%{top:30%}
+  50%{top:50%}
+  100%{top:70%}
+}
 </style>
 </head>
 
@@ -42,17 +72,16 @@ body{background:#f3f4f6}
 
 <!-- POPUP -->
 <div id="alertPopup" class="hidden items-center justify-center">
-  <div id="popupBox">
+  <div id="popupBox" class="bg-white p-5 rounded-xl w-[90%] max-w-sm text-center">
     <div id="popupTitle" class="font-bold text-lg mb-2"></div>
     <div id="popupMsg" class="mb-4"></div>
     <button onclick="closePopup()" class="brand-bg text-white px-4 py-2 rounded">Đã hiểu</button>
   </div>
 </div>
 
-<!-- Sidebar -->
+<!-- SIDEBAR -->
 <div id="sidebar">
   <div class="p-4 border-b text-center">
-    <img src="logo.png" width="140" class="mx-auto mb-2">
     <div class="font-bold brand-text">Saigon Co.op</div>
   </div>
   <div class="p-3 space-y-2">
@@ -62,17 +91,13 @@ body{background:#f3f4f6}
 </div>
 <div id="overlay" onclick="toggleMenu()"></div>
 
+<!-- HEADER -->
 <div class="flex justify-between items-center mb-4 p-3 rounded-lg brand-bg text-white">
-  <div class="flex items-center gap-2">
-    <img src="logo.png" class="h-8 bg-white rounded p-1">
-    <div>
-      <div class="font-bold text-lg">HỆ THỐNG QUẢN LÝ HSD</div>
-      <div class="text-sm opacity-90">Saigon Co.op</div>
-    </div>
-  </div>
+  <div class="font-bold text-lg">HỆ THỐNG QUẢN LÝ HSD</div>
   <button onclick="toggleMenu()" class="text-2xl">☰</button>
 </div>
 
+<!-- ================= MAIN APP ================= -->
 <div id="mainApp">
 
 <div class="card p-4 space-y-3">
@@ -82,7 +107,7 @@ body{background:#f3f4f6}
 <button onclick="startScan()" class="brand-bg text-white px-3 rounded">Quét</button>
 </div>
 
-<div id="reader" class="hidden mt-2"></div>
+<div id="reader" class="hidden"></div>
 
 <label class="font-semibold">Ngày sản xuất (NSX)</label>
 <input type="date" id="nsx" class="border p-2 rounded w-full">
@@ -91,11 +116,11 @@ body{background:#f3f4f6}
 <input type="date" id="hsd" class="border p-2 rounded w-full">
 
 <div class="grid grid-cols-2 gap-2 pt-2">
-<button onclick="calculate()" class="brand-bg text-white py-2 rounded font-semibold">TÍNH KẾT QUẢ</button>
-<button onclick="resetForm()" class="bg-gray-500 text-white py-2 rounded font-semibold">TÍNH LẠI</button>
+<button onclick="calculate()" class="brand-bg text-white py-2 rounded">TÍNH KẾT QUẢ</button>
+<button onclick="resetForm()" class="bg-gray-500 text-white py-2 rounded">TÍNH LẠI</button>
 </div>
 
-<div id="result" class="pt-2"></div>
+<div id="result"></div>
 
 <div class="grid grid-cols-2 gap-2 pt-2">
 <button onclick="exportExcel()" class="bg-slate-700 text-white py-2 rounded">Xuất Excel</button>
@@ -116,25 +141,27 @@ body{background:#f3f4f6}
 
 <div id="history" class="text-sm space-y-1 max-h-64 overflow-auto"></div>
 </div>
-
 </div>
 
+<!-- ================= PRINT APP ================= -->
 <div id="printApp" class="hidden card p-4">
-
 <h2 class="font-bold brand-text mb-3">In bảng giá quầy</h2>
 
-<div class="flex flex-wrap gap-2 mb-2">
+<div class="flex gap-2 mb-2">
 <button onclick="startPrintScan()" class="brand-bg text-white px-3 py-2 rounded">📷 Quét barcode</button>
 <button onclick="exportText()" class="bg-slate-700 text-white px-3 py-2 rounded">⬇ Xuất TXT</button>
 <button onclick="clearPrintHistory()" class="bg-red-600 text-white px-3 py-2 rounded">🗑 Xóa</button>
 </div>
 
-<div id="printReader" class="hidden mb-2"></div>
+<div id="printReader" class="hidden"></div>
 <div class="chat-box" id="printHistory"></div>
-
 </div>
 
 <script>
+  function isIOS(){
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+/* ================= CORE ================= */
 const historyKey="coop_hsd_history";
 const printKey="coop_print_history";
 
@@ -147,26 +174,70 @@ function toggleMenu(){sidebar.classList.toggle("active");overlay.classList.toggl
 function showMain(){mainApp.classList.remove("hidden");printApp.classList.add("hidden");toggleMenu()}
 function showPrint(){mainApp.classList.add("hidden");printApp.classList.remove("hidden");toggleMenu()}
 
-let qr=null, qr2=null, currentFilter="all";
+/* ================= SCAN CONFIG ================= */
+const scanConfigAndroidWeak = { fps: 10, qrbox: 250 };
 
-/* ===== TỐI ƯU QUÉT BARCODE ===== */
-const scanConfig={
- fps:15,
- aspectRatio:1.777,
- disableFlip:true,
- qrbox:{width:300,height:120},
- supportedScanTypes:[Html5QrcodeScanType.SCAN_TYPE_CAMERA]
-};
+let qr=null,qr2=null,currentFilter="all";
 
+/* ================= SCAN MAIN ================= */
 function startScan(){
- const r=document.getElementById("reader");
- r.classList.remove("hidden");
- if(!qr) qr=new Html5Qrcode("reader");
- qr.start({facingMode:"environment"},scanConfig,code=>{
-  barcode.value=code;
-  qr.stop().then(()=>qr.clear());
-  r.classList.add("hidden");
- });
+  if(isIOS()){
+    alert("⚠️ iPhone không hỗ trợ quét barcode ổn định.\nVui lòng nhập tay barcode.");
+    return;
+  }
+
+  const r=document.getElementById("reader");
+  r.innerHTML='<div class="scan-frame"><div class="scan-line"></div></div>';
+  r.classList.remove("hidden");
+
+  if(!qr) qr=new Html5Qrcode("reader");
+
+  qr.start(
+    { facingMode:{ ideal:"environment" } },
+    scanConfigAndroidWeak,
+    code=>{
+      barcode.value=code;
+      qr.stop().then(()=>qr.clear());
+      r.classList.add("hidden");
+    },
+    err=>{}
+  );
+}
+
+/* ================= SCAN PRINT ================= */
+function startPrintScan(){
+
+  if (isIOS()) {
+    alert(
+      "⚠️ THIẾT BỊ iOS KHÔNG HỖ TRỢ QUÉT BARCODE\n\n" +
+      "Vui lòng:\n" +
+      "• Dùng điện thoại Android\n" +
+      "• Hoặc nhập barcode thủ công"
+    );
+    return;
+  }
+
+  const r = document.getElementById("printReader");
+  r.innerHTML = `
+    <div class="scan-frame">
+      <div class="scan-line"></div>
+    </div>
+  `;
+  r.classList.remove("hidden");
+
+  if(!qr2) qr2 = new Html5Qrcode("printReader");
+
+  qr2.start(
+    { facingMode: "environment" },
+    scanConfigAndroidWeak,
+    (code) => {
+      addBarcode(code);
+      qr2.stop().then(() => {
+        qr2.clear();
+        r.classList.add("hidden");
+      });
+    }
+  );
 }
 
 function calculate(){
@@ -256,16 +327,6 @@ function exportExcel(){
 
 function resetForm(){barcode.value="";nsx.value="";hsd.value="";result.innerHTML=""}
 renderHistory();
-
-function startPrintScan(){
- printReader.classList.remove("hidden");
- if(!qr2) qr2=new Html5Qrcode("printReader");
- qr2.start({facingMode:"environment"},scanConfig,code=>{
-  addBarcode(code);
-  qr2.stop().then(()=>qr2.clear());
-  printReader.classList.add("hidden");
- });
-}
 
 function addBarcode(code){
  let d=JSON.parse(localStorage.getItem(printKey)||"{}");

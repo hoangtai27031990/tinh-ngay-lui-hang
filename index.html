@@ -65,28 +65,6 @@ body{background:#f3f4f6}
   50%{top:50%}
   100%{top:70%}
 }
-  @keyframes popupPulseOrange {
-  0% { box-shadow: 0 0 0 3px rgba(251,146,60,.2); }
-  50% { box-shadow: 0 0 0 8px rgba(251,146,60,.45); }
-  100% { box-shadow: 0 0 0 3px rgba(251,146,60,.2); }
-}
-
-@keyframes popupPulseRed {
-  0% { box-shadow: 0 0 0 3px rgba(239,68,68,.25); }
-  50% { box-shadow: 0 0 0 9px rgba(239,68,68,.55); }
-  100% { box-shadow: 0 0 0 3px rgba(239,68,68,.25); }
-}
-
-.popup-30{
-  border:3px solid #fb923c;
-  animation: popupPulseOrange 2s infinite;
-}
-
-.popup-20{
-  border:3px solid #ef4444;
-  animation: popupPulseRed 1.5s infinite;
-}
-
 </style>
 </head>
 
@@ -229,17 +207,17 @@ const printApp=document.getElementById("printApp");
 
 function toggleMenu(){sidebar.classList.toggle("active");overlay.classList.toggle("active")}
 function stopAllScanner(){
-  if(qrEngine){
-    qrEngine.stop().catch(()=>{});
-    qrEngine.clear().catch(()=>{});
-    qrEngine = null;
+  if(qr){
+    qr.stop().then(()=>qr.clear()).catch(()=>{});
+    qr = null;
+  }
+  if(qr2){
+    qr2.stop().then(()=>qr2.clear()).catch(()=>{});
+    qr2 = null;
   }
   isScanning = false;
-
-  document.getElementById("reader").classList.add("hidden");
-  document.getElementById("printReader").classList.add("hidden");
 }
-
+  
 function showMain(){
   stopAllScanner();
   mainApp.classList.remove("hidden");
@@ -279,69 +257,105 @@ function changeCalcMode(){
 }
 
 /* ================= SCAN CONFIG ================= */
-async function startScanEngine(targetId, onResult){
+const scanConfigAndroidWeak = { fps: 10, qrbox: 250 };
+
+let qr=null,qr2=null,currentFilter="all";
+let isScanning = false;
+
+/* ================= SCAN MAIN ================= */
+async function startScan(){
+
   if(isIOS()){
-    alert("⚠️ Thiết bị iOS không hỗ trợ quét barcode, vui lòng sử dụng điện thoại Android để sử dụng chức năng này");
+    alert("⚠️ iPhone không hỗ trợ quét barcode.\nVui lòng nhập tay.");
     return;
   }
 
   if(isScanning) return;
   isScanning = true;
 
-  stopAllScanner();
+  // 🔴 DỪNG CAMERA CŨ (NẾU CÓ)
+  if(qr){
+    try{
+      await qr.stop();
+      await qr.clear();
+    }catch(e){}
+    qr = null;
+  }
 
-  const target = document.getElementById(targetId);
-  target.innerHTML = `
+  const r = document.getElementById("reader");
+  r.innerHTML = `
     <div class="scan-frame">
       <div class="scan-line"></div>
     </div>
   `;
-  target.classList.remove("hidden");
+  r.classList.remove("hidden");
 
+  qr = new Html5Qrcode("reader");
 
-qrEngine = new Html5Qrcode(targetId);
-
-try{
-  await qrEngine.start(
+  qr.start(
     { facingMode: "environment" },
     scanConfigAndroidWeak,
     code => {
-      onResult(code);
-      stopAllScanner();
-      target.classList.add("hidden");
-    }
-  );
+      barcode.value = code;
 
-  // ⏱️ AUTO STOP sau 15 giây nếu chưa quét được
-  setTimeout(()=>{
-    if(isScanning){
-      stopAllScanner();
-      target.classList.add("hidden");
-    }
-  },15000);
-
-}catch(e){
-  isScanning = false;
-  target.classList.add("hidden");
-}
-const scanConfigAndroidWeak = { fps: 10, qrbox: 250 };
-
-let qrEngine = null;
-let isScanning = false;
-let currentFilter = "all";
-
-/* ================= SCAN MAIN ================= */
-  function startScan(){
-  startScanEngine("reader", code=>{
-    barcode.value = code;
+      qr.stop().then(()=>{
+        qr.clear();
+        qr = null;
+        r.classList.add("hidden");
+        isScanning = false;
+      });
+    },
+    () => {}
+  ).catch(()=>{
+    isScanning = false;
+    r.classList.add("hidden");
   });
 }
 
-
 /* ================= SCAN PRINT ================= */
-function startPrintScan(){
-  startScanEngine("printReader", code=>{
-    addBarcode(code);
+async function startPrintScan(){
+
+  if(isIOS()){
+    alert("⚠️ Thiết bị iOS không hỗ trợ quét barcode.");
+    return;
+  }
+
+  if(isScanning) return;
+  isScanning = true;
+
+  if(qr2){
+    try{
+      await qr2.stop();
+      await qr2.clear();
+    }catch(e){}
+    qr2 = null;
+  }
+
+  const r = document.getElementById("printReader");
+  r.innerHTML = `
+    <div class="scan-frame">
+      <div class="scan-line"></div>
+    </div>
+  `;
+  r.classList.remove("hidden");
+
+  qr2 = new Html5Qrcode("printReader");
+
+  qr2.start(
+    { facingMode: "environment" },
+    scanConfigAndroidWeak,
+    code=>{
+      addBarcode(code);
+      qr2.stop().then(()=>{
+        qr2.clear();
+        qr2 = null;
+        r.classList.add("hidden");
+        isScanning = false;
+      });
+    }
+  ).catch(()=>{
+    isScanning = false;
+    r.classList.add("hidden");
   });
 }
 
@@ -402,6 +416,8 @@ if(mode === "nsxPeriod"){
 if(hsdD <= nsxD){
   alert("HSD phải lớn hơn NSX"); return;
 }
+
+ if(hsdD<=nsxD){alert("HSD phải lớn hơn NSX");return}
 
  const total=(hsdD-nsxD)/86400000;
  const date30=new Date(nsxD.getTime()+total*0.7*86400000);
@@ -522,18 +538,7 @@ function showPopup(type){
  const title=document.getElementById("popupTitle");
  const msg=document.getElementById("popupMsg");
 
- // reset cảnh báo cũ
-box.classList.remove("popup-30","popup-20");
-
-// đảm bảo class nền luôn tồn tại
-box.classList.add(
-  "bg-white",
-  "p-5",
-  "rounded-xl",
-  "w-[90%]",
-  "max-w-sm",
-  "text-center"
-);
+ box.className="bg-white p-5 rounded-xl w-[90%] max-w-sm text-center";
 
  if(type==="30"){title.innerText="CẢNH BÁO MỐC 30%";msg.innerText="Báo cáo quản lý để thực hiện giải tồn.";box.classList.add("popup-30")}
  if(type==="20"){title.innerText="CẢNH BÁO MỐC 20%";msg.innerText="Rút hàng khỏi quầy ngay.";box.classList.add("popup-20")}

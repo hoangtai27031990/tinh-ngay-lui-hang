@@ -308,12 +308,39 @@ async function startScanEngine(targetId, onResult){
         target.classList.add("hidden");
       }
     );
-  }catch(e){
-    isScanning = false;
-    target.classList.add("hidden");
   }
+  
+catch(e){
+  alert("Không thể mở camera. Vui lòng kiểm tra quyền truy cập camera trên thiết bị.");
+  stopAllScanner();
+  target.classList.add("hidden");
 }
 
+qrEngine = new Html5Qrcode(targetId);
+
+try{
+  await qrEngine.start(
+    { facingMode: "environment" },
+    scanConfigAndroidWeak,
+    code => {
+      onResult(code);
+      stopAllScanner();
+      target.classList.add("hidden");
+    }
+  );
+
+  // ⏱️ AUTO STOP sau 15 giây nếu chưa quét được
+  setTimeout(()=>{
+    if(isScanning){
+      stopAllScanner();
+      target.classList.add("hidden");
+    }
+  },15000);
+
+}catch(e){
+  isScanning = false;
+  target.classList.add("hidden");
+}
 const scanConfigAndroidWeak = { fps: 10, qrbox: 250 };
 
 let qrEngine = null;

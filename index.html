@@ -257,7 +257,7 @@ function changeCalcMode(){
 /* ================= SCAN CONFIG ================= */
 async function startScanEngine(targetId, onResult){
   if(isIOS()){
-    alert("⚠️ Thiết bị iOS không hỗ trợ quét barcode.");
+    alert("⚠️ Thiết bị iOS không hỗ trợ quét barcode, vui lòng sử dụng điện thoại Android để sử dụng chức năng này");
     return;
   }
 
@@ -492,7 +492,18 @@ function showPopup(type){
  const title=document.getElementById("popupTitle");
  const msg=document.getElementById("popupMsg");
 
- box.className="bg-white p-5 rounded-xl w-[90%] max-w-sm text-center";
+ // reset cảnh báo cũ
+box.classList.remove("popup-30","popup-20");
+
+// đảm bảo class nền luôn tồn tại
+box.classList.add(
+  "bg-white",
+  "p-5",
+  "rounded-xl",
+  "w-[90%]",
+  "max-w-sm",
+  "text-center"
+);
 
  if(type==="30"){title.innerText="CẢNH BÁO MỐC 30%";msg.innerText="Báo cáo quản lý để thực hiện giải tồn.";box.classList.add("popup-30")}
  if(type==="20"){title.innerText="CẢNH BÁO MỐC 20%";msg.innerText="Rút hàng khỏi quầy ngay.";box.classList.add("popup-20")}

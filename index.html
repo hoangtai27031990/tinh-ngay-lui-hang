@@ -65,6 +65,28 @@ body{background:#f3f4f6}
   50%{top:50%}
   100%{top:70%}
 }
+  @keyframes popupPulseOrange {
+  0% { box-shadow: 0 0 0 3px rgba(251,146,60,.2); }
+  50% { box-shadow: 0 0 0 8px rgba(251,146,60,.45); }
+  100% { box-shadow: 0 0 0 3px rgba(251,146,60,.2); }
+}
+
+@keyframes popupPulseRed {
+  0% { box-shadow: 0 0 0 3px rgba(239,68,68,.25); }
+  50% { box-shadow: 0 0 0 9px rgba(239,68,68,.55); }
+  100% { box-shadow: 0 0 0 3px rgba(239,68,68,.25); }
+}
+
+.popup-30{
+  border:3px solid #fb923c;
+  animation: popupPulseOrange 2s infinite;
+}
+
+.popup-20{
+  border:3px solid #ef4444;
+  animation: popupPulseRed 1.5s infinite;
+}
+
 </style>
 </head>
 
@@ -370,8 +392,6 @@ if(mode === "nsxPeriod"){
 if(hsdD <= nsxD){
   alert("HSD phải lớn hơn NSX"); return;
 }
-
- if(hsdD<=nsxD){alert("HSD phải lớn hơn NSX");return}
 
  const total=(hsdD-nsxD)/86400000;
  const date30=new Date(nsxD.getTime()+total*0.7*86400000);

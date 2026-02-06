@@ -65,6 +65,45 @@ body{background:#f3f4f6}
   50%{top:50%}
   100%{top:70%}
 }
+  /* ================= PULSE POPUP ================= */
+
+/* Pulse màu cam – mốc 30% */
+@keyframes pulseOrange {
+  0% {
+    box-shadow: 0 0 0 0 rgba(251,146,60,0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 16px rgba(251,146,60,0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(251,146,60,0);
+  }
+}
+
+/* Pulse màu đỏ – mốc 20% */
+@keyframes pulseRed {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239,68,68,0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 20px rgba(239,68,68,0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239,68,68,0);
+  }
+}
+
+/* Class áp dụng */
+.popup-pulse-30 {
+  border: 3px solid #fb923c;
+  animation: pulseOrange 2s infinite;
+}
+
+.popup-pulse-20 {
+  border: 3px solid #ef4444;
+  animation: pulseRed 1.4s infinite;
+}
+
 </style>
 </head>
 
@@ -540,9 +579,22 @@ function showPopup(type){
 
  box.className="bg-white p-5 rounded-xl w-[90%] max-w-sm text-center";
 
- if(type==="30"){title.innerText="CẢNH BÁO MỐC 30%";msg.innerText="Báo cáo quản lý để thực hiện giải tồn.";box.classList.add("popup-30")}
- if(type==="20"){title.innerText="CẢNH BÁO MỐC 20%";msg.innerText="Rút hàng khỏi quầy ngay.";box.classList.add("popup-20")}
- if(type==="export"){title.innerText="✅ XUẤT FILE THÀNH CÔNG";msg.innerText="Dữ liệu đã được tải về và hệ thống đã sẵn sàng cho lần tiếp theo."}
+ if(type === "30"){
+  title.innerText = "CẢNH BÁO MỐC 30%";
+  msg.innerText = "Báo cáo quản lý để thực hiện giải tồn.";
+  box.classList.add("popup-pulse-30");
+}
+
+if(type === "20"){
+  title.innerText = "CẢNH BÁO MỐC 20%";
+  msg.innerText = "Rút hàng khỏi quầy ngay.";
+  box.classList.add("popup-pulse-20");
+}
+
+if(type === "export"){
+  title.innerText = "✅ XUẤT FILE THÀNH CÔNG";
+  msg.innerText = "Dữ liệu đã được tải về và hệ thống đã sẵn sàng cho lần tiếp theo.";
+}
 
  popup.classList.remove("hidden");
  popup.classList.add("flex");

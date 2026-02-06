@@ -230,12 +230,14 @@ const printApp=document.getElementById("printApp");
 function toggleMenu(){sidebar.classList.toggle("active");overlay.classList.toggle("active")}
 function stopAllScanner(){
   if(qrEngine){
-    qrEngine.stop()
-      .then(()=>qrEngine.clear())
-      .catch(()=>{});
+    qrEngine.stop().catch(()=>{});
+    qrEngine.clear().catch(()=>{});
     qrEngine = null;
   }
   isScanning = false;
+
+  document.getElementById("reader").classList.add("hidden");
+  document.getElementById("printReader").classList.add("hidden");
 }
 
 function showMain(){
@@ -296,25 +298,6 @@ async function startScanEngine(targetId, onResult){
   `;
   target.classList.remove("hidden");
 
-  qrEngine = new Html5Qrcode(targetId);
-
-  try{
-    await qrEngine.start(
-      { facingMode: "environment" },
-      scanConfigAndroidWeak,
-      code => {
-        onResult(code);
-        stopAllScanner();
-        target.classList.add("hidden");
-      }
-    );
-  }
-  
-catch(e){
-  alert("Không thể mở camera. Vui lòng kiểm tra quyền truy cập camera trên thiết bị.");
-  stopAllScanner();
-  target.classList.add("hidden");
-}
 
 qrEngine = new Html5Qrcode(targetId);
 
@@ -348,7 +331,7 @@ let isScanning = false;
 let currentFilter = "all";
 
 /* ================= SCAN MAIN ================= */
-function startScan(){
+  function startScan(){
   startScanEngine("reader", code=>{
     barcode.value = code;
   });

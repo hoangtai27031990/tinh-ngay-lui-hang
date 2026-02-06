@@ -108,12 +108,47 @@ body{background:#f3f4f6}
 </div>
 
 <div id="reader" class="hidden"></div>
+<label class="font-semibold">Chọn loại tính</label>
+<select id="calcMode" class="border p-2 rounded w-full" onchange="changeCalcMode()">
+  <option value="full">Có NSX & HSD</option>
+  <option value="hsdBack">Chỉ có HẠN SỬ DỤNG</option>
+  <option value="nsxPeriod">Chỉ có NGÀY SẢN XUẤT</option>
+</select>
 
-<label class="font-semibold">Ngày sản xuất (NSX)</label>
-<input type="date" id="nsx" class="border p-2 rounded w-full">
+<div id="nsxBlock">
+  <label class="font-semibold">Ngày sản xuất (NSX)</label>
+  <input type="date" id="nsx" class="border p-2 rounded w-full">
+</div>
 
-<label class="font-semibold">Hạn sử dụng (HSD)</label>
-<input type="date" id="hsd" class="border p-2 rounded w-full">
+<div id="hsdBlock">
+  <label class="font-semibold">Hạn sử dụng (HSD)</label>
+  <input type="date" id="hsd" class="border p-2 rounded w-full">
+</div>
+<!-- Thời gian trước HSD -->
+<div id="beforeHsdBlock" class="hidden">
+  <label class="font-semibold">Thời gian trước HSD</label>
+  <div class="flex gap-2">
+    <input type="number" id="beforeHsdValue" class="border p-2 rounded w-1/2" placeholder="Ví dụ: 6">
+    <select id="beforeHsdUnit" class="border p-2 rounded w-1/2">
+      <option value="day">Ngày</option>
+      <option value="month">Tháng</option>
+      <option value="year">Năm</option>
+    </select>
+  </div>
+</div>
+
+<!-- Thời gian sử dụng từ NSX -->
+<div id="nsxPeriodBlock" class="hidden">
+  <label class="font-semibold">Thời gian sử dụng từ NSX</label>
+  <div class="flex gap-2">
+    <input type="number" id="periodValue" class="border p-2 rounded w-1/2" placeholder="Ví dụ: 6">
+    <select id="periodUnit" class="border p-2 rounded w-1/2">
+      <option value="day">Ngày</option>
+      <option value="month">Tháng</option>
+      <option value="year">Năm</option>
+    </select>
+  </div>
+</div>
 
 <div class="grid grid-cols-2 gap-2 pt-2">
 <button onclick="calculate()" class="brand-bg text-white py-2 rounded">TÍNH KẾT QUẢ</button>
@@ -171,50 +206,129 @@ const mainApp=document.getElementById("mainApp");
 const printApp=document.getElementById("printApp");
 
 function toggleMenu(){sidebar.classList.toggle("active");overlay.classList.toggle("active")}
-function showMain(){mainApp.classList.remove("hidden");printApp.classList.add("hidden");toggleMenu()}
-function showPrint(){mainApp.classList.add("hidden");printApp.classList.remove("hidden");toggleMenu()}
+function stopAllScanner(){
+  if(qr){
+    qr.stop().then(()=>qr.clear()).catch(()=>{});
+    qr = null;
+  }
+  if(qr2){
+    qr2.stop().then(()=>qr2.clear()).catch(()=>{});
+    qr2 = null;
+  }
+  isScanning = false;
+}
+  
+function showMain(){
+  stopAllScanner();
+  mainApp.classList.remove("hidden");
+  printApp.classList.add("hidden");
+  toggleMenu();
+}
+
+function showPrint(){
+  stopAllScanner();
+  mainApp.classList.add("hidden");
+  printApp.classList.remove("hidden");
+  toggleMenu();
+}
+
+function changeCalcMode(){
+  const m = calcMode.value;
+
+  nsxBlock.classList.add("hidden");
+  hsdBlock.classList.add("hidden");
+  beforeHsdBlock.classList.add("hidden");
+  nsxPeriodBlock.classList.add("hidden");
+
+  if(m === "full"){
+    nsxBlock.classList.remove("hidden");
+    hsdBlock.classList.remove("hidden");
+  }
+
+  if(m === "hsdBack"){
+    hsdBlock.classList.remove("hidden");
+    beforeHsdBlock.classList.remove("hidden");
+  }
+
+  if(m === "nsxPeriod"){
+    nsxBlock.classList.remove("hidden");
+    nsxPeriodBlock.classList.remove("hidden");
+  }
+}
 
 /* ================= SCAN CONFIG ================= */
 const scanConfigAndroidWeak = { fps: 10, qrbox: 250 };
 
 let qr=null,qr2=null,currentFilter="all";
+let isScanning = false;
 
 /* ================= SCAN MAIN ================= */
-function startScan(){
+async function startScan(){
+
   if(isIOS()){
-    alert("⚠️ iPhone không hỗ trợ quét barcode ổn định.\nVui lòng nhập tay barcode.");
+    alert("⚠️ iPhone không hỗ trợ quét barcode.\nVui lòng nhập tay.");
     return;
   }
 
-  const r=document.getElementById("reader");
-  r.innerHTML='<div class="scan-frame"><div class="scan-line"></div></div>';
+  if(isScanning) return;
+  isScanning = true;
+
+  // 🔴 DỪNG CAMERA CŨ (NẾU CÓ)
+  if(qr){
+    try{
+      await qr.stop();
+      await qr.clear();
+    }catch(e){}
+    qr = null;
+  }
+
+  const r = document.getElementById("reader");
+  r.innerHTML = `
+    <div class="scan-frame">
+      <div class="scan-line"></div>
+    </div>
+  `;
   r.classList.remove("hidden");
 
-  if(!qr) qr=new Html5Qrcode("reader");
+  qr = new Html5Qrcode("reader");
 
   qr.start(
-    { facingMode:{ ideal:"environment" } },
+    { facingMode: "environment" },
     scanConfigAndroidWeak,
-    code=>{
-      barcode.value=code;
-      qr.stop().then(()=>qr.clear());
-      r.classList.add("hidden");
+    code => {
+      barcode.value = code;
+
+      qr.stop().then(()=>{
+        qr.clear();
+        qr = null;
+        r.classList.add("hidden");
+        isScanning = false;
+      });
     },
-    err=>{}
-  );
+    () => {}
+  ).catch(()=>{
+    isScanning = false;
+    r.classList.add("hidden");
+  });
 }
 
 /* ================= SCAN PRINT ================= */
-function startPrintScan(){
+async function startPrintScan(){
 
-  if (isIOS()) {
-    alert(
-      "⚠️ THIẾT BỊ iOS KHÔNG HỖ TRỢ QUÉT BARCODE\n\n" +
-      "Vui lòng:\n" +
-      "• Dùng điện thoại Android\n" +
-      "• Hoặc nhập barcode thủ công"
-    );
+  if(isIOS()){
+    alert("⚠️ Thiết bị iOS không hỗ trợ quét barcode.");
     return;
+  }
+
+  if(isScanning) return;
+  isScanning = true;
+
+  if(qr2){
+    try{
+      await qr2.stop();
+      await qr2.clear();
+    }catch(e){}
+    qr2 = null;
   }
 
   const r = document.getElementById("printReader");
@@ -225,25 +339,84 @@ function startPrintScan(){
   `;
   r.classList.remove("hidden");
 
-  if(!qr2) qr2 = new Html5Qrcode("printReader");
+  qr2 = new Html5Qrcode("printReader");
 
   qr2.start(
     { facingMode: "environment" },
     scanConfigAndroidWeak,
-    (code) => {
+    code=>{
       addBarcode(code);
-      qr2.stop().then(() => {
+      qr2.stop().then(()=>{
         qr2.clear();
+        qr2 = null;
         r.classList.add("hidden");
+        isScanning = false;
       });
     }
-  );
+  ).catch(()=>{
+    isScanning = false;
+    r.classList.add("hidden");
+  });
+}
+
+function addPeriod(date, value, unit){
+  const d = new Date(date);
+
+  if(unit === "day") d.setDate(d.getDate() + value);
+
+  if(unit === "month"){
+    const day = d.getDate();
+    d.setMonth(d.getMonth() + value);
+    if(d.getDate() < day) d.setDate(0);
+  }
+
+  if(unit === "year") d.setFullYear(d.getFullYear() + value);
+
+  return d;
 }
 
 function calculate(){
- const nsxVal=nsx.value, hsdVal=hsd.value;
- if(!nsxVal||!hsdVal){alert("Nhập đủ NSX & HSD");return}
- const nsxD=new Date(nsxVal), hsdD=new Date(hsdVal);
+let nsxD, hsdD;
+const mode = calcMode.value;
+
+if(mode === "full"){
+  if(!nsx.value || !hsd.value){
+    alert("Nhập đủ NSX & HSD"); return;
+  }
+  nsxD = new Date(nsx.value);
+  hsdD = new Date(hsd.value);
+}
+
+if(mode === "hsdBack"){
+  if(!hsd.value){
+    alert("Nhập HSD"); return;
+  }
+  const v = Number(beforeHsdValue.value);
+  const u = beforeHsdUnit.value;
+  if(!v){
+    alert("Nhập thời gian trước HSD"); return;
+  }
+  hsdD = new Date(hsd.value);
+  nsxD = addPeriod(hsdD, -v, u);
+}
+
+if(mode === "nsxPeriod"){
+  if(!nsx.value){
+    alert("Nhập NSX"); return;
+  }
+  const v = Number(periodValue.value);
+  const u = periodUnit.value;
+  if(!v){
+    alert("Nhập thời gian sử dụng"); return;
+  }
+  nsxD = new Date(nsx.value);
+  hsdD = addPeriod(nsxD, v, u);
+}
+
+if(hsdD <= nsxD){
+  alert("HSD phải lớn hơn NSX"); return;
+}
+
  if(hsdD<=nsxD){alert("HSD phải lớn hơn NSX");return}
 
  const total=(hsdD-nsxD)/86400000;
@@ -381,6 +554,15 @@ function closePopup(){
  alertPopup.classList.add("hidden");
  alertPopup.classList.remove("flex");
 }
+function resetForm(){
+  barcode.value="";
+  nsx.value="";
+  hsd.value="";
+  beforeHsdValue.value="";
+  periodValue.value="";
+  result.innerHTML="";
+}
+
 </script>
 
 </body>

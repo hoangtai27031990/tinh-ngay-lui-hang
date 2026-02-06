@@ -207,17 +207,15 @@ const printApp=document.getElementById("printApp");
 
 function toggleMenu(){sidebar.classList.toggle("active");overlay.classList.toggle("active")}
 function stopAllScanner(){
-  if(qr){
-    qr.stop().then(()=>qr.clear()).catch(()=>{});
-    qr = null;
-  }
-  if(qr2){
-    qr2.stop().then(()=>qr2.clear()).catch(()=>{});
-    qr2 = null;
+  if(qrEngine){
+    qrEngine.stop()
+      .then(()=>qrEngine.clear())
+      .catch(()=>{});
+    qrEngine = null;
   }
   isScanning = false;
 }
-  
+
 function showMain(){
   stopAllScanner();
   mainApp.classList.remove("hidden");
@@ -257,64 +255,7 @@ function changeCalcMode(){
 }
 
 /* ================= SCAN CONFIG ================= */
-const scanConfigAndroidWeak = { fps: 10, qrbox: 250 };
-
-let qr=null,qr2=null,currentFilter="all";
-let isScanning = false;
-
-/* ================= SCAN MAIN ================= */
-async function startScan(){
-
-  if(isIOS()){
-    alert("⚠️ iPhone không hỗ trợ quét barcode.\nVui lòng nhập tay.");
-    return;
-  }
-
-  if(isScanning) return;
-  isScanning = true;
-
-  // 🔴 DỪNG CAMERA CŨ (NẾU CÓ)
-  if(qr){
-    try{
-      await qr.stop();
-      await qr.clear();
-    }catch(e){}
-    qr = null;
-  }
-
-  const r = document.getElementById("reader");
-  r.innerHTML = `
-    <div class="scan-frame">
-      <div class="scan-line"></div>
-    </div>
-  `;
-  r.classList.remove("hidden");
-
-  qr = new Html5Qrcode("reader");
-
-  qr.start(
-    { facingMode: "environment" },
-    scanConfigAndroidWeak,
-    code => {
-      barcode.value = code;
-
-      qr.stop().then(()=>{
-        qr.clear();
-        qr = null;
-        r.classList.add("hidden");
-        isScanning = false;
-      });
-    },
-    () => {}
-  ).catch(()=>{
-    isScanning = false;
-    r.classList.add("hidden");
-  });
-}
-
-/* ================= SCAN PRINT ================= */
-async function startPrintScan(){
-
+async function startScanEngine(targetId, onResult){
   if(isIOS()){
     alert("⚠️ Thiết bị iOS không hỗ trợ quét barcode.");
     return;
@@ -323,39 +264,52 @@ async function startPrintScan(){
   if(isScanning) return;
   isScanning = true;
 
-  if(qr2){
-    try{
-      await qr2.stop();
-      await qr2.clear();
-    }catch(e){}
-    qr2 = null;
-  }
+  stopAllScanner();
 
-  const r = document.getElementById("printReader");
-  r.innerHTML = `
+  const target = document.getElementById(targetId);
+  target.innerHTML = `
     <div class="scan-frame">
       <div class="scan-line"></div>
     </div>
   `;
-  r.classList.remove("hidden");
+  target.classList.remove("hidden");
 
-  qr2 = new Html5Qrcode("printReader");
+  qrEngine = new Html5Qrcode(targetId);
 
-  qr2.start(
-    { facingMode: "environment" },
-    scanConfigAndroidWeak,
-    code=>{
-      addBarcode(code);
-      qr2.stop().then(()=>{
-        qr2.clear();
-        qr2 = null;
-        r.classList.add("hidden");
-        isScanning = false;
-      });
-    }
-  ).catch(()=>{
+  try{
+    await qrEngine.start(
+      { facingMode: "environment" },
+      scanConfigAndroidWeak,
+      code => {
+        onResult(code);
+        stopAllScanner();
+        target.classList.add("hidden");
+      }
+    );
+  }catch(e){
     isScanning = false;
-    r.classList.add("hidden");
+    target.classList.add("hidden");
+  }
+}
+
+const scanConfigAndroidWeak = { fps: 10, qrbox: 250 };
+
+let qrEngine = null;
+let isScanning = false;
+let currentFilter = "all";
+
+/* ================= SCAN MAIN ================= */
+function startScan(){
+  startScanEngine("reader", code=>{
+    barcode.value = code;
+  });
+}
+
+
+/* ================= SCAN PRINT ================= */
+function startPrintScan(){
+  startScanEngine("printReader", code=>{
+    addBarcode(code);
   });
 }
 

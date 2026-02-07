@@ -103,6 +103,39 @@ body{background:#f3f4f6}
   border: 3px solid #ef4444;
   animation: pulseRed 0.9s infinite;
 }
+.scan-container{
+  position:relative;
+  width:100%;
+  height:260px;
+  background:#000;
+}
+
+.scan-overlay{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+}
+
+.scan-hint{
+  position:absolute;
+  bottom:8px;
+  width:100%;
+  text-align:center;
+  font-size:13px;
+  color:#fff;
+  opacity:.8;
+}
+
+/* ===== TRẠNG THÁI ===== */
+.scan-success .scan-frame{
+  border-color:#22c55e;
+}
+.scan-success .scan-line{
+  display:none;
+}
+.scan-error .scan-frame{
+  border-color:#ef4444;
+}
 
 </style>
 </head>
@@ -146,7 +179,13 @@ body{background:#f3f4f6}
 <button onclick="startScan()" class="brand-bg text-white px-3 rounded">Quét</button>
 </div>
 
-<div id="reader" class="hidden"></div>
+<div id="reader" class="hidden scan-container">
+  <div class="scan-overlay">
+    <div class="scan-frame"></div>
+    <div class="scan-line"></div>
+    <div class="scan-hint">Đưa mã vạch vào khung</div>
+  </div>
+</div>
 <label class="font-semibold">Chọn loại tính</label>
 <select id="calcMode" class="border p-2 rounded w-full" onchange="changeCalcMode()">
   <option value="full">Có NSX & HSD</option>
@@ -227,7 +266,14 @@ body{background:#f3f4f6}
 <button onclick="clearPrintHistory()" class="bg-red-600 text-white px-3 py-2 rounded">🗑 Xóa</button>
 </div>
 
-<div id="printReader" class="hidden"></div>
+<div id="printReader" class="hidden scan-container">
+  <div class="scan-overlay">
+    <div class="scan-frame"></div>
+    <div class="scan-line"></div>
+    <div class="scan-hint">Đưa mã vạch vào khung</div>
+  </div>
+</div>
+  
 <div class="chat-box" id="printHistory"></div>
 </div>
 
@@ -321,11 +367,43 @@ async function startScanCamera(readerId, onSuccess){
   await stopAllScanner();
 
   const reader = document.getElementById(readerId);
-  reader.innerHTML = `
-    <div class="scan-frame">
-      <div class="scan-line"></div>
-    </div>
-  `;
+  async function startScanCamera(readerId, onSuccess){
+  if(isIOS()){
+    alert("⚠️ Thiết bị iOS không hỗ trợ quét barcode.");
+    return;
+  }
+
+  if(isScanning) return;
+  isScanning = true;
+
+  await stopAllScanner();
+
+  const reader = document.getElementById(readerId);
+  reader.classList.remove("hidden");
+  setScanState(readerId, null);
+
+  qrScanner = new Html5Qrcode(readerId);
+
+  qrScanner.start(
+    { facingMode: "environment" },
+    scanConfigAndroidWeak,
+    async (code)=>{
+      setScanState(readerId, "scan-success");
+      onSuccess(code);
+
+      setTimeout(async ()=>{
+        await stopAllScanner();
+        reader.classList.add("hidden");
+      }, 300);
+    },
+    ()=>{}
+  ).catch(()=>{
+    setScanState(readerId, "scan-error");
+    reader.classList.add("hidden");
+    isScanning = false;
+  });
+}
+
   reader.classList.remove("hidden");
 
   qrScanner = new Html5Qrcode(readerId);
@@ -568,6 +646,11 @@ function resetForm(){
   beforeHsdValue.value="";
   periodValue.value="";
   result.innerHTML="";
+}
+function setScanState(readerId, state){
+  const el = document.getElementById(readerId);
+  el.classList.remove("scan-success","scan-error");
+  if(state) el.classList.add(state);
 }
 
 </script>

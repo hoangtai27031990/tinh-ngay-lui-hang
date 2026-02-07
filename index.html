@@ -292,6 +292,8 @@ const printApp=document.getElementById("printApp");
 
 function toggleMenu(){sidebar.classList.toggle("active");overlay.classList.toggle("active")}
 async function stopAllScanner(){
+  clearScanTimeout(); // 🔴 HỦY TIMEOUT TRƯỚC
+
   if(qrScanner){
     try{
       await qrScanner.stop();
@@ -301,7 +303,6 @@ async function stopAllScanner(){
   }
   isScanning = false;
 }
-
   
 function showMain(){
   stopAllScanner();
@@ -344,9 +345,7 @@ function changeCalcMode(){
 /* ================= SCAN CONFIG ================= */
 const scanConfigAndroidWeak = { fps: 10, qrbox: 250 };
 
-let qrScanner = null;
-let isScanning = false;
-let currentFilter = "all";
+let scanTimeout = null;
 
 /* ================= SCAN MAIN ================= */
 function startScan(){
@@ -367,16 +366,43 @@ async function startScanCamera(readerId, onSuccess){
   await stopAllScanner();
 
   const reader = document.getElementById(readerId);
-  async function startScanCamera(readerId, onSuccess){
-  if(isIOS()){
-    alert("⚠️ Thiết bị iOS không hỗ trợ quét barcode.");
-    return;
-  }
+  reader.classList.remove("hidden");
+  setScanState(readerId, null);
 
-  if(isScanning) return;
-  isScanning = true;
+  qrScanner = new Html5Qrcode(readerId);
 
-  await stopAllScanner();
+  // ⏱ TIMEOUT 10 GIÂY
+  clearScanTimeout();
+  scanTimeout = setTimeout(async ()=>{
+    if(isScanning){
+      await stopAllScanner();
+      reader.classList.add("hidden");
+      alert("⏱ Quá 10 giây chưa quét được barcode.\nVui lòng thử lại.");
+    }
+  }, 10000);
+
+  qrScanner.start(
+    { facingMode: "environment" },
+    scanConfigAndroidWeak,
+    async (code)=>{
+      clearScanTimeout();              // 🔴 HỦY TIMEOUT
+      setScanState(readerId,"scan-success");
+      onSuccess(code);
+
+      setTimeout(async ()=>{
+        await stopAllScanner();
+        reader.classList.add("hidden");
+      },300);
+    },
+    ()=>{}
+  ).catch(()=>{
+    clearScanTimeout();
+    setScanState(readerId,"scan-error");
+    reader.classList.add("hidden");
+    isScanning = false;
+  });
+}
+
 
   const reader = document.getElementById(readerId);
   reader.classList.remove("hidden");

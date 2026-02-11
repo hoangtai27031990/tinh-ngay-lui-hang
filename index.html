@@ -663,8 +663,6 @@ function exportExcel(){
  XLSX.utils.book_append_sheet(wb,ws,"HSD");
  XLSX.writeFile(wb,"saigoncoop_hsd.xlsx");
 
- localStorage.removeItem(historyKey);
- renderHistory();
  showPopup("export");
 }
 

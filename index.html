@@ -655,17 +655,38 @@ function closeConfirmPopup(){
 }
 
 function exportExcel(){
- const h=JSON.parse(localStorage.getItem(historyKey)||"[]");
- if(!h.length){alert("Không có dữ liệu");return}
 
- const ws=XLSX.utils.json_to_sheet(h);
- const wb=XLSX.utils.book_new();
- XLSX.utils.book_append_sheet(wb,ws,"HSD");
- XLSX.writeFile(wb,"saigoncoop_hsd.xlsx");
+  const h = JSON.parse(localStorage.getItem(historyKey) || "[]");
 
- localStorage.removeItem(historyKey);
- renderHistory();
- showPopup("export");
+  if(!h.length){
+    alert("Không có dữ liệu");
+    return;
+  }
+
+  // Chuẩn hóa dữ liệu khi xuất (định dạng ngày dễ đọc)
+  const exportData = h.map(x => ({
+    "Tên SP": x.TenSP || "",
+    "Barcode": x.Barcode || "",
+    "NSX": new Date(x.NSX).toLocaleDateString("vi-VN"),
+    "HSD": new Date(x.HSD).toLocaleDateString("vi-VN"),
+    "Mốc 30%": new Date(x.M30).toLocaleDateString("vi-VN"),
+    "Mốc 20%": new Date(x.M20).toLocaleDateString("vi-VN"),
+    "Trạng thái 30%": x.CanhBao30,
+    "Trạng thái 20%": x.CanhBao20,
+    "Thời gian tính": x.ThoiGian,
+    "Đã kiểm date": x.completed ? "Đã xử lý" : "Chưa xử lý"
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(exportData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "HSD");
+
+  XLSX.writeFile(wb, "saigoncoop_hsd.xlsx");
+
+  // ❌ KHÔNG xóa localStorage nữa
+  // localStorage.removeItem(historyKey);
+
+  showPopup("export");
 }
 
 

@@ -553,9 +553,6 @@ if(hsdD <= nsxD){
 
 saveHistory(nsxD, hsdD, date30, date20, f30, f20);
 
-cleanExpiredProducts();   // ⬅️ thêm dòng này
-renderHistory();
-
  if(today>=date20) showPopup("20");
  else if(today>=date30) showPopup("30");
 }
@@ -658,41 +655,19 @@ function closeConfirmPopup(){
 }
 
 function exportExcel(){
+ const h=JSON.parse(localStorage.getItem(historyKey)||"[]");
+ if(!h.length){alert("Không có dữ liệu");return}
 
- const h = JSON.parse(localStorage.getItem(historyKey) || "[]");
+ const ws=XLSX.utils.json_to_sheet(h);
+ const wb=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb,ws,"HSD");
+ XLSX.writeFile(wb,"saigoncoop_hsd.xlsx");
 
- if(!h.length){
-   alert("Không có dữ liệu");
-   return;
- }
-
- // Chuẩn hóa dữ liệu hiển thị cho đẹp
- const exportData = h.map(x => ({
-   "Tên SP": x.TenSP || "",
-   "Barcode": x.Barcode || "",
-   "NSX": new Date(x.NSX).toLocaleDateString("vi-VN"),
-   "HSD": new Date(x.HSD).toLocaleDateString("vi-VN"),
-   "Mốc 30%": new Date(x.M30).toLocaleDateString("vi-VN"),
-   "Mốc 20%": new Date(x.M20).toLocaleDateString("vi-VN"),
-   "Trạng thái 30%": x.CanhBao30,
-   "Trạng thái 20%": x.CanhBao20,
-   "Thời gian tính": x.ThoiGian,
-   "Đã kiểm date": x.completed ? "Đã xử lý" : "Chưa xử lý"
- }));
-
- const ws = XLSX.utils.json_to_sheet(exportData);
- const wb = XLSX.utils.book_new();
- XLSX.utils.book_append_sheet(wb, ws, "HSD");
-
- XLSX.writeFile(wb, "saigoncoop_hsd.xlsx");
-
- // ❌ KHÔNG XÓA LỊCH SỬ NỮA
- // localStorage.removeItem(historyKey);
-
+ localStorage.removeItem(historyKey);
+ renderHistory();
  showPopup("export");
 }
 
-cleanExpiredProducts();   // ⬅️ thêm dòng này
 
 renderHistory();
 renderPrint();
@@ -794,29 +769,6 @@ if(isPopupShowing) return;
    closeCheckDatePopup();
    return;
  }
-/* ================= AUTO CLEAN EXPIRED ================= */
-
-function cleanExpiredProducts(){
-
-  let data = JSON.parse(localStorage.getItem(historyKey) || "[]");
-  if(!Array.isArray(data) || !data.length) return;
-
-  const today = new Date();
-  today.setHours(0,0,0,0);
-
-  const filtered = data.filter(item => {
-
-    const hsd = new Date(item.HSD);
-    if(isNaN(hsd)) return false;
-
-    hsd.setHours(0,0,0,0);
-
-    // ❌ Nếu HSD < today → loại bỏ
-    return hsd >= today;
-  });
-
-  localStorage.setItem(historyKey, JSON.stringify(filtered));
-}
 
  const today = new Date();
  today.setHours(0,0,0,0);
@@ -939,8 +891,7 @@ function completeProduct(id){
   } else {
     closeCheckDatePopup();
   }
-cleanExpiredProducts();   // ⬅️ thêm dòng này
-  
+
   renderHistory();
   showToast("Đã xử lý sản phẩm");
 }

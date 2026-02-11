@@ -553,6 +553,9 @@ if(hsdD <= nsxD){
 
 saveHistory(nsxD, hsdD, date30, date20, f30, f20);
 
+cleanExpiredProducts();   // ⬅️ thêm dòng này
+renderHistory();
+
  if(today>=date20) showPopup("20");
  else if(today>=date30) showPopup("30");
 }
@@ -689,7 +692,7 @@ function exportExcel(){
  showPopup("export");
 }
 
-
+cleanExpiredProducts();   // ⬅️ thêm dòng này
 
 renderHistory();
 renderPrint();
@@ -791,6 +794,29 @@ if(isPopupShowing) return;
    closeCheckDatePopup();
    return;
  }
+/* ================= AUTO CLEAN EXPIRED ================= */
+
+function cleanExpiredProducts(){
+
+  let data = JSON.parse(localStorage.getItem(historyKey) || "[]");
+  if(!Array.isArray(data) || !data.length) return;
+
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  const filtered = data.filter(item => {
+
+    const hsd = new Date(item.HSD);
+    if(isNaN(hsd)) return false;
+
+    hsd.setHours(0,0,0,0);
+
+    // ❌ Nếu HSD < today → loại bỏ
+    return hsd >= today;
+  });
+
+  localStorage.setItem(historyKey, JSON.stringify(filtered));
+}
 
  const today = new Date();
  today.setHours(0,0,0,0);
@@ -913,7 +939,8 @@ function completeProduct(id){
   } else {
     closeCheckDatePopup();
   }
-
+cleanExpiredProducts();   // ⬅️ thêm dòng này
+  
   renderHistory();
   showToast("Đã xử lý sản phẩm");
 }

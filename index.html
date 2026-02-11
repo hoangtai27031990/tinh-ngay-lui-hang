@@ -104,7 +104,53 @@ body{background:#f3f4f6}
   border: 3px solid #ef4444;
   animation: pulseRed 0.9s infinite;
 }
+  @keyframes pulseCheck {
+  0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+  70% { box-shadow: 0 0 0 25px rgba(239,68,68,0); }
+  100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+}
 
+/* ================= CHECK DATE PULSE ================= */
+
+@keyframes checkDatePulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(220,38,38,0.45);
+  }
+  60% {
+    transform: scale(1.02);
+    box-shadow: 0 0 0 20px rgba(220,38,38,0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(220,38,38,0);
+  }
+}
+
+.checkdate-pulse {
+  border: 3px solid #dc2626;
+  animation: checkDatePulse 1.5s ease-out infinite;
+}
+.toast{
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  background: #2e7d32;
+  color: white;
+  padding: 12px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.3s ease;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.toast.show{
+  opacity: 1;
+  transform: translateY(0);
+}
 </style>
 </head>
 
@@ -116,6 +162,30 @@ body{background:#f3f4f6}
     <div id="popupTitle" class="font-bold text-lg mb-2"></div>
     <div id="popupMsg" class="mb-4"></div>
     <button onclick="closePopup()" class="brand-bg text-white px-4 py-2 rounded">Đã hiểu</button>
+  </div>
+</div>
+<!-- POPUP KIỂM DATE -->
+<div id="checkDateBox"
+     class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-50 z-[2100]">
+
+<div id="checkDateInner"
+     class="bg-white p-5 rounded-xl w-[95%] max-w-md text-center">
+
+    <div class="font-bold text-lg mb-3 text-red-600">
+      SẢN PHẨM CẦN KIỂM DATE
+    </div>
+
+    <div id="checkDateList"
+         class="text-left space-y-3 max-h-80 overflow-auto">
+    </div>
+
+    <div class="mt-4">
+      <button onclick="closeCheckDatePopup()"
+        class="bg-gray-600 text-white px-4 py-2 rounded">
+        ĐÃ HIỂU
+      </button>
+    </div>
+
   </div>
 </div>
 
@@ -141,6 +211,8 @@ body{background:#f3f4f6}
 <div id="mainApp">
 
 <div class="card p-4 space-y-3">
+<label class="font-semibold">Tên sản phẩm (không bắt buộc)</label>
+<input id="productName" class="border p-2 rounded w-full" placeholder="Ví dụ: Sữa tươi Vinamilk 1L">
 <label class="font-semibold">Barcode sản phẩm</label>
 <div class="flex gap-2">
 <input id="barcode" class="border p-2 rounded w-full">
@@ -301,6 +373,7 @@ const scanConfigAndroidWeak = { fps: 10, qrbox: 250 };
 
 let qr=null,qr2=null,currentFilter="all";
 let isScanning = false;
+let isPopupShowing = false;
 
 /* ================= SCAN MAIN ================= */
 async function startScan(){
@@ -457,8 +530,6 @@ if(hsdD <= nsxD){
   alert("HSD phải lớn hơn NSX"); return;
 }
 
- if(hsdD<=nsxD){alert("HSD phải lớn hơn NSX");return}
-
  const total=(hsdD-nsxD)/86400000;
  const date30=new Date(nsxD.getTime()+total*0.7*86400000);
  const date20=new Date(nsxD.getTime()+total*0.8*86400000);
@@ -480,18 +551,36 @@ if(hsdD <= nsxD){
 <div>${warn20||"<span class='text-green-700'>Trong ngưỡng an toàn</span>"}</div>
 </div>`;
 
- saveHistory(f30,f20);
+saveHistory(nsxD, hsdD, date30, date20, f30, f20);
 
  if(today>=date20) showPopup("20");
  else if(today>=date30) showPopup("30");
 }
 
-function saveHistory(f30,f20){
- let h=JSON.parse(localStorage.getItem(historyKey)||"[]");
- h.unshift({Barcode:barcode.value,NSX:nsx.value,HSD:hsd.value,"Cảnh báo 30%":f30,"Cảnh báo 20%":f20,"Thời gian":new Date().toLocaleString("vi-VN")});
- localStorage.setItem(historyKey,JSON.stringify(h));
- renderHistory();
+function saveHistory(nsxD, hsdD, date30, date20, f30, f20){
+
+   const history = JSON.parse(localStorage.getItem(historyKey)) || [];
+
+   const record = {
+      id: Date.now() + Math.random(),
+      TenSP: productName.value.trim() || "",
+      Barcode: barcode.value.trim() || "",
+      NSX: nsxD.toISOString(),
+      HSD: hsdD.toISOString(),
+      M30: date30.toISOString(),
+      M20: date20.toISOString(),
+      CanhBao30: f30,
+      CanhBao20: f20,
+      ThoiGian: new Date().toLocaleString("vi-VN")
+   };
+
+   history.unshift(record);
+
+   localStorage.setItem(historyKey, JSON.stringify(history));
+
+   renderHistory();
 }
+
 
 function setFilter(type){
  currentFilter=type;
@@ -501,28 +590,69 @@ function setFilter(type){
 }
 
 function renderHistory(){
- let data=JSON.parse(localStorage.getItem(historyKey)||"[]");
- if(currentFilter==="30") data=data.filter(x=>x["Cảnh báo 30%"]==="Giải tồn");
- if(currentFilter==="20") data=data.filter(x=>x["Cảnh báo 20%"]==="Rút hàng");
+
+ let data = JSON.parse(localStorage.getItem(historyKey) || "[]");
+
+ // SỬA FILTER ĐÚNG FIELD
+ if(currentFilter==="30")
+   data = data.filter(x => x.CanhBao30 === "Giải tồn");
+
+ if(currentFilter==="20")
+   data = data.filter(x => x.CanhBao20 === "Rút hàng");
 
  if(!data.length){
-  history.innerHTML="<div class='text-gray-400 italic'>Không có dữ liệu phù hợp</div>";
-  statistic.innerHTML="📦 Tổng: 0";
-  return;
+   history.innerHTML="<div class='text-gray-400 italic'>Không có dữ liệu phù hợp</div>";
+   statistic.innerHTML="📦 Tổng: 0";
+   return;
  }
 
- history.innerHTML=data.map(x=>`
+ history.innerHTML = data.map(x=>`
 <div class="border-b pb-1">
-<div><b>Barcode:</b> ${x.Barcode||"-"}</div>
-<div>30%: <span class="${x["Cảnh báo 30%"]==="Giải tồn"?"text-orange-600 font-semibold":"text-green-700"}">${x["Cảnh báo 30%"]}</span>
- | 20%: <span class="${x["Cảnh báo 20%"]==="Rút hàng"?"text-red-600 font-semibold":"text-green-700"}">${x["Cảnh báo 20%"]}</span></div>
-<div class="text-xs text-gray-500">⏱ ${x["Thời gian"]}</div>
-</div>`).join("");
+<div><b>Tên SP:</b> ${x.TenSP || "-"}</div>
+<div><b>Barcode:</b> ${x.Barcode || "-"}</div>
+<div>
+30%:
+<span class="${x.CanhBao30==="Giải tồn"?"text-orange-600 font-semibold":"text-green-700"}">
+${x.CanhBao30}
+</span>
+|
+20%:
+<span class="${x.CanhBao20==="Rút hàng"?"text-red-600 font-semibold":"text-green-700"}">
+${x.CanhBao20}
+</span>
+</div>
+<div class="text-xs text-gray-500">⏱ ${x.ThoiGian}</div>
+</div>
+`).join("");
 
  statistic.innerHTML=`📦 Tổng: <b>${data.length}</b>`;
 }
 
-function clearHistory(){localStorage.removeItem(historyKey);renderHistory()}
+
+function clearHistory(){
+
+  const data = JSON.parse(localStorage.getItem(historyKey) || "[]");
+
+  if(!data.length){
+    alert("Không có dữ liệu để xóa");
+    return;
+  }
+
+  document.getElementById("confirmBox").classList.remove("hidden");
+  document.getElementById("confirmBox").classList.add("flex");
+}
+function confirmDeleteHistory(){
+
+  localStorage.removeItem(historyKey);
+  renderHistory();
+  closeConfirmPopup();
+}
+
+function closeConfirmPopup(){
+  const box = document.getElementById("confirmBox");
+  box.classList.add("hidden");
+  box.classList.remove("flex");
+}
 
 function exportExcel(){
  const h=JSON.parse(localStorage.getItem(historyKey)||"[]");
@@ -538,8 +668,10 @@ function exportExcel(){
  showPopup("export");
 }
 
-function resetForm(){barcode.value="";nsx.value="";hsd.value="";result.innerHTML=""}
+
 renderHistory();
+renderPrint();
+checkStoredProducts();
 
 function addBarcode(code){
  let d=JSON.parse(localStorage.getItem(printKey)||"{}");
@@ -566,48 +698,62 @@ function exportText(){
  a.href=url;a.download="barcode_print.txt";
  document.body.appendChild(a);a.click();document.body.removeChild(a);
  URL.revokeObjectURL(url);
-
+  
  localStorage.removeItem(printKey);
  renderPrint();
  showPopup("export");
 }
 
 function showPopup(type){
- const popup=document.getElementById("alertPopup");
- const box=document.getElementById("popupBox");
- const title=document.getElementById("popupTitle");
- const msg=document.getElementById("popupMsg");
 
- box.className="bg-white p-5 rounded-xl w-[90%] max-w-sm text-center";
+ if(isPopupShowing) return; // chặn mở chồng
+ isPopupShowing = true;
 
- if(type === "30"){
-  title.innerText = "CẢNH BÁO MỐC 30%";
-  msg.innerText = "Báo cáo quản lý để thực hiện giải tồn.";
-  box.classList.add("popup-pulse-30");
-}
+ const popup = document.getElementById("alertPopup");
+ const box = document.getElementById("popupBox");
+ const title = document.getElementById("popupTitle");
+ const msg = document.getElementById("popupMsg");
 
-if(type === "20"){
+ // reset class trước khi thêm hiệu ứng mới
+ box.className = "bg-white p-5 rounded-xl w-[90%] max-w-sm text-center";
+
+ // Ưu tiên 20% trước
+ if(type === "20"){
   title.innerText = "CẢNH BÁO MỐC 20%";
   msg.innerText = "Rút hàng khỏi quầy ngay.";
   box.classList.add("popup-pulse-20");
-}
+ }
 
-if(type === "export"){
-  title.innerText = "✅ XUẤT FILE THÀNH CÔNG";
+ else if(type === "30"){
+  title.innerText = "CẢNH BÁO MỐC 30%";
+  msg.innerText = "Báo cáo quản lý để thực hiện giải tồn.";
+  box.classList.add("popup-pulse-30");
+ }
+
+ else if(type === "export"){
+  title.innerText = "XUẤT FILE THÀNH CÔNG";
   msg.innerText = "Dữ liệu đã được tải về và hệ thống đã sẵn sàng cho lần tiếp theo.";
-}
+ }
 
  popup.classList.remove("hidden");
  popup.classList.add("flex");
 
- if(type==="export") setTimeout(closePopup,2500);
+ if(type === "export"){
+   setTimeout(closePopup, 2500);
+ }
 }
 
+
 function closePopup(){
- alertPopup.classList.add("hidden");
- alertPopup.classList.remove("flex");
+ const popup = document.getElementById("alertPopup");
+ popup.classList.add("hidden");
+ popup.classList.remove("flex");
+ isPopupShowing = false;
 }
+
+  
 function resetForm(){
+  productName.value="";
   barcode.value="";
   nsx.value="";
   hsd.value="";
@@ -615,8 +761,188 @@ function resetForm(){
   periodValue.value="";
   result.innerHTML="";
 }
+function checkStoredProducts(){
+if(isPopupShowing) return;
+ let data = JSON.parse(localStorage.getItem(historyKey) || "[]");
 
+ if(!Array.isArray(data) || !data.length){
+   closeCheckDatePopup();
+   return;
+ }
+
+ const today = new Date();
+ today.setHours(0,0,0,0);
+
+ function parseVNDate(dateStr){
+   if(!dateStr) return null;
+   if(dateStr.includes("-")) return new Date(dateStr);
+   const [d,m,y] = dateStr.split("/");
+   return new Date(`${y}-${m}-${d}`);
+ }
+
+ let warningProducts = [];
+
+ data.forEach(item => {
+
+   if(item.completed === true) return;
+
+   const m30 = new Date(item.M30);
+   if(!m30 || isNaN(m30)) return;
+
+   m30.setHours(0,0,0,0);
+
+   const before15 = new Date(m30);
+   before15.setDate(before15.getDate() - 15);
+
+   const after10 = new Date(m30);
+   after10.setDate(after10.getDate() + 10);
+
+   if(today >= before15 && today <= after10){
+     warningProducts.push(item);
+   }
+
+ });
+
+ if(warningProducts.length){
+   showCheckDatePopup(warningProducts);
+ } else {
+   closeCheckDatePopup();
+ }
+}
+
+
+function showCheckDatePopup(list){
+
+ isPopupShowing = true;
+ const box = document.getElementById("checkDateBox");
+ const container = document.getElementById("checkDateList");
+const inner = document.getElementById("checkDateInner");
+inner.classList.remove("checkdate-pulse");
+
+ if(!list || !list.length){
+   closeCheckDatePopup();
+   return;
+ }
+
+ container.innerHTML = list.map(item => {
+
+   const m30 = new Date(item.M30).toLocaleDateString("vi-VN");
+   const hsd = new Date(item.HSD).toLocaleDateString("vi-VN");
+
+   return `
+   <div class="border p-2 rounded">
+     <div><b>${item.TenSP || "-"}</b></div>
+     <div>Ngưỡng 30%: ${m30}</div>
+     <div>HSD: ${hsd}</div>
+     <button onclick="completeProduct(${item.id})"
+       class="mt-2 bg-red-600 text-white px-3 py-1 rounded text-sm">
+       HOÀN THÀNH
+     </button>
+   </div>`;
+ }).join("");
+  
+inner.classList.add("checkdate-pulse");
+
+ box.classList.remove("hidden");
+ box.classList.add("flex");
+}
+
+
+
+function completeProduct(id){
+
+  let data = JSON.parse(localStorage.getItem(historyKey) || "[]");
+
+  // Đánh dấu hoàn thành
+  data = data.map(item => {
+    if(item.id === id){
+      return { ...item, completed: true };
+    }
+    return item;
+  });
+
+  localStorage.setItem(historyKey, JSON.stringify(data));
+
+  // Lọc lại danh sách cảnh báo từ dữ liệu mới
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  const warningProducts = data.filter(item => {
+
+    if(item.completed) return false;
+
+    const m30 = new Date(item.M30);
+    if(isNaN(m30)) return false;
+
+    m30.setHours(0,0,0,0);
+
+    const before15 = new Date(m30);
+    before15.setDate(before15.getDate() - 15);
+
+    const after10 = new Date(m30);
+    after10.setDate(after10.getDate() + 10);
+
+    return today >= before15 && today <= after10;
+  });
+
+  // Render lại popup đúng dữ liệu mới
+  if(warningProducts.length > 0){
+    showCheckDatePopup(warningProducts);
+  } else {
+    closeCheckDatePopup();
+  }
+
+  renderHistory();
+  showToast("Đã xử lý sản phẩm");
+}
+
+function closeCheckDatePopup(){
+  const box = document.getElementById("checkDateBox");
+  const inner = document.getElementById("checkDateInner");
+
+  inner.classList.remove("checkdate-pulse");
+
+  box.classList.add("hidden");
+  box.classList.remove("flex");
+  isPopupShowing = false;
+}
+function showToast(message = "Đã xử lý"){
+
+  const toast = document.getElementById("toastBox");
+  toast.innerText = message;
+
+  toast.classList.add("show");
+
+  setTimeout(() => {
+    toast.classList.remove("show");
+  }, 2500);
+}
 </script>
+<div id="confirmBox"
+     class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-50 z-[2200]">
 
+  <div class="bg-white p-5 rounded-xl w-[90%] max-w-sm text-center">
+    <div class="font-bold text-lg mb-3 text-red-600">
+      XÁC NHẬN XÓA LỊCH SỬ
+    </div>
+
+    <div class="mb-4 text-sm">
+      Thao tác này sẽ xóa toàn bộ dữ liệu và không thể khôi phục.
+    </div>
+
+    <div class="flex justify-center gap-3">
+      <button onclick="confirmDeleteHistory()"
+        class="bg-red-600 text-white px-4 py-2 rounded">
+        XÓA
+      </button>
+
+      <button onclick="closeConfirmPopup()"
+        class="bg-gray-500 text-white px-4 py-2 rounded">
+        HỦY
+      </button>
+    </div>
+  </div>
+</div>
+<div id="toastBox" class="toast"></div>
 </body>
 </html>

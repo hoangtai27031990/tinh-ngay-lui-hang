@@ -770,91 +770,7 @@ function checkStoredProducts(){
     return;
   }
 
-  const today = new Date();
-  today.setHours(0,0,0,0);
-
-  let warningProducts = [];
-  let cleanedData = [];
-
-  data.forEach(item => {
-
-    const m30 = new Date(item.M30);
-    if(!m30 || isNaN(m30)) return;
-
-    m30.setHours(0,0,0,0);
-
-    const before15 = new Date(m30);
-    before15.setDate(before15.getDate() - 15);
-
-    const after10 = new Date(m30);
-    after10.setDate(after10.getDate() + 10);
-
-    // ❌ Nếu đã quá 10 ngày sau mốc 30% → loại khỏi hệ thống
-    if(today > after10){
-      return; 
-    }
-
-    // ✔ Giữ lại dữ liệu hợp lệ
-    cleanedData.push(item);
-
-    // ✔ Nếu nằm trong vùng kiểm date và chưa hoàn thành
-    if(today >= before15 && today <= after10 && !item.completed){
-      warningProducts.push(item);
-    }
-
-  });
-
-  // Ghi đè lại localStorage bằng dữ liệu đã làm sạch
-  localStorage.setItem(historyKey, JSON.stringify(cleanedData));
-
-  renderHistory();
-
-  if(warningProducts.length){
-    showCheckDatePopup(warningProducts);
-  }else{
-    closeCheckDatePopup();
-  }
-}
-
- const today = new Date();
- today.setHours(0,0,0,0);
-
- function parseVNDate(dateStr){
-   if(!dateStr) return null;
-   if(dateStr.includes("-")) return new Date(dateStr);
-   const [d,m,y] = dateStr.split("/");
-   return new Date(`${y}-${m}-${d}`);
- }
-
- let warningProducts = [];
-
- data.forEach(item => {
-
-   if(item.completed === true) return;
-
-   const m30 = new Date(item.M30);
-   if(!m30 || isNaN(m30)) return;
-
-   m30.setHours(0,0,0,0);
-
-   const before15 = new Date(m30);
-   before15.setDate(before15.getDate() - 15);
-
-   const after10 = new Date(m30);
-   after10.setDate(after10.getDate() + 10);
-
-   if(today >= before15 && today <= after10){
-     warningProducts.push(item);
-   }
-
- });
-
- if(warningProducts.length){
-   showCheckDatePopup(warningProducts);
- } else {
-   closeCheckDatePopup();
- }
-}
+  
 
 
 function showCheckDatePopup(list){
@@ -899,9 +815,8 @@ function completeProduct(id){
 
   let data = JSON.parse(localStorage.getItem(historyKey) || "[]");
 
-  // Đánh dấu hoàn thành
   data = data.map(item => {
-    if(item.id === id){
+    if(String(item.id) === String(id)){
       return { ...item, completed: true };
     }
     return item;
@@ -909,34 +824,7 @@ function completeProduct(id){
 
   localStorage.setItem(historyKey, JSON.stringify(data));
 
-  // Lọc lại danh sách cảnh báo từ dữ liệu mới
-  const today = new Date();
-  today.setHours(0,0,0,0);
-
-  const warningProducts = data.filter(item => {
-
-    if(item.completed) return false;
-
-    const m30 = new Date(item.M30);
-    if(isNaN(m30)) return false;
-
-    m30.setHours(0,0,0,0);
-
-    const before15 = new Date(m30);
-    before15.setDate(before15.getDate() - 15);
-
-    const after10 = new Date(m30);
-    after10.setDate(after10.getDate() + 10);
-
-    return today >= before15 && today <= after10;
-  });
-
-  // Render lại popup đúng dữ liệu mới
-  if(warningProducts.length > 0){
-    showCheckDatePopup(warningProducts);
-  } else {
-    closeCheckDatePopup();
-  }
+  checkStoredProducts();   // gọi lại hàm chính thay vì tự filter lại
 
   renderHistory();
   showToast("Đã xử lý sản phẩm");

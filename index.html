@@ -310,6 +310,34 @@ body{background:#f3f4f6}
 }
 /* ================= CORE ================= */
 const historyKey="coop_hsd_history";
+  /* ================= AUTO CLEAN EXPIRED ================= */
+function autoCleanExpired(){
+
+  let data = JSON.parse(localStorage.getItem(historyKey) || "[]");
+  if(!data.length) return;
+
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  const filtered = data.filter(item => {
+
+    if(!item.HSD) return true;
+
+    const hsd = new Date(item.HSD);
+    if(isNaN(hsd)) return true;
+
+    hsd.setHours(0,0,0,0);
+
+    // Giữ lại nếu HSD >= hôm nay
+    return hsd >= today;
+  });
+
+  // Nếu có thay đổi mới lưu lại
+  if(filtered.length !== data.length){
+    localStorage.setItem(historyKey, JSON.stringify(filtered));
+  }
+}
+
 const printKey="coop_print_history";
 
 const sidebar=document.getElementById("sidebar");
@@ -552,6 +580,7 @@ if(hsdD <= nsxD){
 </div>`;
 
 saveHistory(nsxD, hsdD, date30, date20, f30, f20);
+autoCleanExpired();
 
  if(today>=date20) showPopup("20");
  else if(today>=date30) showPopup("30");
@@ -689,6 +718,8 @@ function exportExcel(){
   showPopup("export");
 }
 
+
+autoCleanExpired();   // THÊM DÒNG NÀY
 
 renderHistory();
 renderPrint();
@@ -913,8 +944,9 @@ function completeProduct(id){
     closeCheckDatePopup();
   }
 
-  renderHistory();
-  showToast("Đã xử lý sản phẩm");
+ autoCleanExpired();
+renderHistory();
+showToast("Đã xử lý sản phẩm");
 }
 
 function closeCheckDatePopup(){

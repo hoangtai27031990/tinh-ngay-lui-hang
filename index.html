@@ -655,16 +655,40 @@ function closeConfirmPopup(){
 }
 
 function exportExcel(){
- const h=JSON.parse(localStorage.getItem(historyKey)||"[]");
- if(!h.length){alert("Không có dữ liệu");return}
 
- const ws=XLSX.utils.json_to_sheet(h);
- const wb=XLSX.utils.book_new();
- XLSX.utils.book_append_sheet(wb,ws,"HSD");
- XLSX.writeFile(wb,"saigoncoop_hsd.xlsx");
+ const h = JSON.parse(localStorage.getItem(historyKey) || "[]");
+
+ if(!h.length){
+   alert("Không có dữ liệu");
+   return;
+ }
+
+ // Chuẩn hóa dữ liệu hiển thị cho đẹp
+ const exportData = h.map(x => ({
+   "Tên SP": x.TenSP || "",
+   "Barcode": x.Barcode || "",
+   "NSX": new Date(x.NSX).toLocaleDateString("vi-VN"),
+   "HSD": new Date(x.HSD).toLocaleDateString("vi-VN"),
+   "Mốc 30%": new Date(x.M30).toLocaleDateString("vi-VN"),
+   "Mốc 20%": new Date(x.M20).toLocaleDateString("vi-VN"),
+   "Trạng thái 30%": x.CanhBao30,
+   "Trạng thái 20%": x.CanhBao20,
+   "Thời gian tính": x.ThoiGian,
+   "Đã kiểm date": x.completed ? "Đã xử lý" : "Chưa xử lý"
+ }));
+
+ const ws = XLSX.utils.json_to_sheet(exportData);
+ const wb = XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb, ws, "HSD");
+
+ XLSX.writeFile(wb, "saigoncoop_hsd.xlsx");
+
+ // ❌ KHÔNG XÓA LỊCH SỬ NỮA
+ // localStorage.removeItem(historyKey);
 
  showPopup("export");
 }
+
 
 
 renderHistory();
@@ -760,17 +784,53 @@ function resetForm(){
   result.innerHTML="";
 }
 function checkStoredProducts(){
+if(isPopupShowing) return;
+ let data = JSON.parse(localStorage.getItem(historyKey) || "[]");
 
-  if(isPopupShowing) return;
+ if(!Array.isArray(data) || !data.length){
+   closeCheckDatePopup();
+   return;
+ }
 
-  let data = JSON.parse(localStorage.getItem(historyKey) || "[]");
+ const today = new Date();
+ today.setHours(0,0,0,0);
 
-  if(!Array.isArray(data) || !data.length){
-    closeCheckDatePopup();
-    return;
-  }
+ function parseVNDate(dateStr){
+   if(!dateStr) return null;
+   if(dateStr.includes("-")) return new Date(dateStr);
+   const [d,m,y] = dateStr.split("/");
+   return new Date(`${y}-${m}-${d}`);
+ }
 
-  
+ let warningProducts = [];
+
+ data.forEach(item => {
+
+   if(item.completed === true) return;
+
+   const m30 = new Date(item.M30);
+   if(!m30 || isNaN(m30)) return;
+
+   m30.setHours(0,0,0,0);
+
+   const before15 = new Date(m30);
+   before15.setDate(before15.getDate() - 15);
+
+   const after10 = new Date(m30);
+   after10.setDate(after10.getDate() + 10);
+
+   if(today >= before15 && today <= after10){
+     warningProducts.push(item);
+   }
+
+ });
+
+ if(warningProducts.length){
+   showCheckDatePopup(warningProducts);
+ } else {
+   closeCheckDatePopup();
+ }
+}
 
 
 function showCheckDatePopup(list){
@@ -815,8 +875,9 @@ function completeProduct(id){
 
   let data = JSON.parse(localStorage.getItem(historyKey) || "[]");
 
+  // Đánh dấu hoàn thành
   data = data.map(item => {
-    if(String(item.id) === String(id)){
+    if(item.id === id){
       return { ...item, completed: true };
     }
     return item;
@@ -824,7 +885,34 @@ function completeProduct(id){
 
   localStorage.setItem(historyKey, JSON.stringify(data));
 
-  checkStoredProducts();   // gọi lại hàm chính thay vì tự filter lại
+  // Lọc lại danh sách cảnh báo từ dữ liệu mới
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  const warningProducts = data.filter(item => {
+
+    if(item.completed) return false;
+
+    const m30 = new Date(item.M30);
+    if(isNaN(m30)) return false;
+
+    m30.setHours(0,0,0,0);
+
+    const before15 = new Date(m30);
+    before15.setDate(before15.getDate() - 15);
+
+    const after10 = new Date(m30);
+    after10.setDate(after10.getDate() + 10);
+
+    return today >= before15 && today <= after10;
+  });
+
+  // Render lại popup đúng dữ liệu mới
+  if(warningProducts.length > 0){
+    showCheckDatePopup(warningProducts);
+  } else {
+    closeCheckDatePopup();
+  }
 
   renderHistory();
   showToast("Đã xử lý sản phẩm");

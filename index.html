@@ -597,17 +597,16 @@ if(hsdD<=nsxD){
 
 const totalDays = Math.floor((hsdD - nsxD) / 86400000);
 
-// ===== QUY ĐỔI RA THÁNG (30 NGÀY) =====
+// ===== QUY ĐỔI RA THÁNG (CHUẨN 30 NGÀY) =====
 
-const months = Math.round(totalDays / 30);
+// lấy số tháng nguyên + tháng lẻ
+const months = Math.floor(totalDays / 30);
+const remainDays = totalDays % 30;
 
-// ===== TÍNH MỐC =====
+// ===== TÍNH MỐC THEO TỶ LỆ =====
 
-const days20 = months * 6;
-const days30 = months * 9;
-
-const date20 = new Date(hsdD.getTime() - days20 * 86400000);
-const date30 = new Date(hsdD.getTime() - days30 * 86400000);
+const days20 = (months * 6) + Math.round(remainDays * 0.2);
+const days30 = (months * 9) + Math.round(remainDays * 0.3);
 
 // ===== CẢNH BÁO =====
 

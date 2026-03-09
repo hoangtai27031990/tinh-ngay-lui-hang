@@ -521,12 +521,16 @@ function addPeriod(date, value, unit){
 }
 
 function calculate(){
+
 let nsxD, hsdD;
 const mode = calcMode.value;
 
+// ===== XÁC ĐỊNH NSX & HSD =====
+
 if(mode === "full"){
   if(!nsx.value || !hsd.value){
-    alert("Nhập đủ NSX & HSD"); return;
+    alert("Nhập đủ NSX & HSD");
+    return;
   }
   nsxD = new Date(nsx.value);
   hsdD = new Date(hsd.value);
@@ -534,60 +538,118 @@ if(mode === "full"){
 
 if(mode === "hsdBack"){
   if(!hsd.value){
-    alert("Nhập HSD"); return;
+    alert("Nhập HSD");
+    return;
   }
+
   const v = Number(beforeHsdValue.value);
   const u = beforeHsdUnit.value;
+
   if(!v){
-    alert("Nhập thời gian trước HSD"); return;
+    alert("Nhập thời gian trước HSD");
+    return;
   }
+
   hsdD = new Date(hsd.value);
   nsxD = addPeriod(hsdD, -v, u);
 }
 
 if(mode === "nsxPeriod"){
   if(!nsx.value){
-    alert("Nhập NSX"); return;
+    alert("Nhập NSX");
+    return;
   }
+
   const v = Number(periodValue.value);
   const u = periodUnit.value;
+
   if(!v){
-    alert("Nhập thời gian sử dụng"); return;
+    alert("Nhập thời gian sử dụng");
+    return;
   }
+
   nsxD = new Date(nsx.value);
   hsdD = addPeriod(nsxD, v, u);
 }
 
 if(hsdD <= nsxD){
-  alert("HSD phải lớn hơn NSX"); return;
+  alert("HSD phải lớn hơn NSX");
+  return;
 }
 
- const total=(hsdD-nsxD)/86400000;
- const date30=new Date(nsxD.getTime()+total*0.7*86400000);
- const date20=new Date(nsxD.getTime()+total*0.8*86400000);
- const today=new Date();
+// ===== TÍNH NGÀY THEO QUY ƯỚC 30 DAY MONTH =====
 
- let warn30="",warn20="",b30="",b20="",f30="Bình thường",f20="Bình thường";
+function days360(start,end){
 
- if(today>=date30){warn30="⚠️ <b>Báo cáo Quản lý giải tồn</b>";b30="blink30";f30="Giải tồn"}
- if(today>=date20){warn20="⚠️ <b>Rút hàng khỏi quầy</b>";b20="blink20";f20="Rút hàng"}
+  const s = new Date(start);
+  const e = new Date(end);
 
- result.innerHTML=`
+  const y1 = s.getFullYear();
+  const m1 = s.getMonth()+1;
+  const d1 = s.getDate();
+
+  const y2 = e.getFullYear();
+  const m2 = e.getMonth()+1;
+  const d2 = e.getDate();
+
+  return (y2-y1)*360 + (m2-m1)*30 + (d2-d1);
+}
+
+const totalDays = days360(nsxD,hsdD);
+
+// ===== TÍNH MỐC 30% - 20% =====
+
+const date30 = new Date(nsxD.getTime() + totalDays*0.7*86400000);
+const date20 = new Date(nsxD.getTime() + totalDays*0.8*86400000);
+
+const today = new Date();
+today.setHours(0,0,0,0);
+
+let warn30="",warn20="",b30="",b20="";
+let f30="Bình thường",f20="Bình thường";
+
+if(today>=date30){
+  warn30="⚠️ <b>Báo cáo Quản lý giải tồn</b>";
+  b30="blink30";
+  f30="Giải tồn";
+}
+
+if(today>=date20){
+  warn20="⚠️ <b>Rút hàng khỏi quầy</b>";
+  b20="blink20";
+  f20="Rút hàng";
+}
+
+// ===== HIỂN THỊ =====
+
+result.innerHTML=`
 <div class="border p-3 mb-3 ${b30}">
-<b>MỐC 30%</b><br>📅 ${date30.toLocaleDateString("vi-VN")}
+<b>MỐC 30%</b><br>
+📅 ${date30.toLocaleDateString("vi-VN")}
 <div>${warn30||"<span class='text-green-700'>Trong ngưỡng an toàn</span>"}</div>
 </div>
 
 <div class="border p-3 ${b20}">
-<b>MỐC 20%</b><br>📅 ${date20.toLocaleDateString("vi-VN")}
+<b>MỐC 20%</b><br>
+📅 ${date20.toLocaleDateString("vi-VN")}
 <div>${warn20||"<span class='text-green-700'>Trong ngưỡng an toàn</span>"}</div>
-</div>`;
+</div>
 
-saveHistory(nsxD, hsdD, date30, date20, f30, f20);
+<div class="text-xs text-gray-500 mt-2">
+⚠️ Hệ thống tính theo quy ước: 1 tháng = 30 ngày
+</div>
+`;
+
+// ===== LƯU LỊCH SỬ =====
+
+saveHistory(nsxD,hsdD,date30,date20,f30,f20);
 autoCleanExpired();
 
- if(today>=date20) showPopup("20");
- else if(today>=date30) showPopup("30");
+// ===== POPUP =====
+
+if(today>=date20) showPopup("20");
+else if(today>=date30) showPopup("30");
+
 }
 
 function saveHistory(nsxD, hsdD, date30, date20, f30, f20){

@@ -595,14 +595,23 @@ if(hsdD<=nsxD){
 
 // ===== TÍNH TỔNG NGÀY =====
 
-const totalDays = Math.floor((hsdD-nsxD)/86400000);
+const totalDays = Math.floor((hsdD - nsxD) / 86400000);
 
-// ===== MỐC 30% - 20% =====
+// ===== QUY ĐỔI RA THÁNG (30 NGÀY) =====
 
-const date30 = new Date(nsxD.getTime()+Math.floor(totalDays*0.7)*86400000);
-const date20 = new Date(nsxD.getTime()+Math.floor(totalDays*0.8)*86400000);
+const months = Math.round(totalDays / 30);
 
-const today=new Date();
+// ===== TÍNH MỐC =====
+
+const days20 = months * 6;
+const days30 = months * 9;
+
+const date20 = new Date(hsdD.getTime() - days20 * 86400000);
+const date30 = new Date(hsdD.getTime() - days30 * 86400000);
+
+// ===== CẢNH BÁO =====
+
+const today = new Date();
 today.setHours(0,0,0,0);
 
 let warn30="",warn20="",b30="",b20="";
@@ -619,6 +628,8 @@ if(today>=date20){
  b20="blink20";
  f20="Rút hàng";
 }
+
+// ===== HIỂN THỊ =====
 
 result.innerHTML=`
 <div class="border p-3 mb-3 ${b30}">

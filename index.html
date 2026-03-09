@@ -608,6 +608,11 @@ const remainDays = totalDays % 30;
 const days20 = (months * 6) + Math.round(remainDays * 0.2);
 const days30 = (months * 9) + Math.round(remainDays * 0.3);
 
+  // ===== TÍNH NGÀY MỐC =====
+
+const date20 = new Date(hsdD.getTime() - days20 * 86400000);
+const date30 = new Date(hsdD.getTime() - days30 * 86400000);
+  
 // ===== CẢNH BÁO =====
 
 const today = new Date();

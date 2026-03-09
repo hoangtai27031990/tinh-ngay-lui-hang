@@ -7,7 +7,7 @@
 <title>HỆ THỐNG QUẢN LÝ HSD – Saigon Co.op</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/html5-qrcode"></script> 
+<script src="https://unpkg.com/html5-qrcode"></script>
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
 <style>
@@ -521,141 +521,75 @@ function addPeriod(date, value, unit){
 }
 
 function calculate(){
-
 let nsxD, hsdD;
 const mode = calcMode.value;
 
-// ===== XÁC ĐỊNH NSX / HSD =====
-
-if(mode==="full"){
-
- if(!nsx.value || !hsd.value){
-  alert("Nhập đủ NSX & HSD");
-  return;
- }
-
- nsxD = new Date(nsx.value);
- hsdD = new Date(hsd.value);
+if(mode === "full"){
+  if(!nsx.value || !hsd.value){
+    alert("Nhập đủ NSX & HSD"); return;
+  }
+  nsxD = new Date(nsx.value);
+  hsdD = new Date(hsd.value);
 }
 
-if(mode==="hsdBack"){
-
- if(!hsd.value){
-  alert("Nhập HSD");
-  return;
- }
-
- const v = Number(beforeHsdValue.value);
- const u = beforeHsdUnit.value;
-
- if(!v){
-  alert("Nhập thời gian trước HSD");
-  return;
- }
-
- hsdD = new Date(hsd.value);
-
- let days = v;
-
- if(u==="month") days = v*30;
- if(u==="year") days = v*360;
-
- nsxD = new Date(hsdD.getTime() - days*86400000);
+if(mode === "hsdBack"){
+  if(!hsd.value){
+    alert("Nhập HSD"); return;
+  }
+  const v = Number(beforeHsdValue.value);
+  const u = beforeHsdUnit.value;
+  if(!v){
+    alert("Nhập thời gian trước HSD"); return;
+  }
+  hsdD = new Date(hsd.value);
+  nsxD = addPeriod(hsdD, -v, u);
 }
 
-if(mode==="nsxPeriod"){
-
- if(!nsx.value){
-  alert("Nhập NSX");
-  return;
- }
-
- const v = Number(periodValue.value);
- const u = periodUnit.value;
-
- if(!v){
-  alert("Nhập thời gian sử dụng");
-  return;
- }
-
- nsxD = new Date(nsx.value);
-
- let days = v;
-
- if(u==="month") days = v*30;
- if(u==="year") days = v*360;
-
- hsdD = new Date(nsxD.getTime() + days*86400000);
+if(mode === "nsxPeriod"){
+  if(!nsx.value){
+    alert("Nhập NSX"); return;
+  }
+  const v = Number(periodValue.value);
+  const u = periodUnit.value;
+  if(!v){
+    alert("Nhập thời gian sử dụng"); return;
+  }
+  nsxD = new Date(nsx.value);
+  hsdD = addPeriod(nsxD, v, u);
 }
 
-if(hsdD<=nsxD){
- alert("HSD phải lớn hơn NSX");
- return;
+if(hsdD <= nsxD){
+  alert("HSD phải lớn hơn NSX"); return;
 }
 
-// ===== TÍNH TỔNG NGÀY =====
+ const total=(hsdD-nsxD)/86400000;
+ const date30=new Date(nsxD.getTime()+total*0.7*86400000);
+ const date20=new Date(nsxD.getTime()+total*0.8*86400000);
+ const today=new Date();
 
-const totalDays = Math.floor((hsdD - nsxD) / 86400000);
+ let warn30="",warn20="",b30="",b20="",f30="Bình thường",f20="Bình thường";
 
-// ===== QUY ĐỔI RA THÁNG (CHUẨN 30 NGÀY) =====
+ if(today>=date30){warn30="⚠️ <b>Báo cáo Quản lý giải tồn</b>";b30="blink30";f30="Giải tồn"}
+ if(today>=date20){warn20="⚠️ <b>Rút hàng khỏi quầy</b>";b20="blink20";f20="Rút hàng"}
 
-// lấy số tháng nguyên + tháng lẻ
-const months = Math.floor(totalDays / 30);
-const remainDays = totalDays % 30;
-
-// ===== TÍNH MỐC THEO TỶ LỆ =====
-
-const days20 = (months * 6) + Math.round(remainDays * 0.2);
-const days30 = (months * 9) + Math.round(remainDays * 0.3);
-
-  // ===== TÍNH NGÀY MỐC =====
-
-const date20 = new Date(hsdD.getTime() - days20 * 86400000);
-const date30 = new Date(hsdD.getTime() - days30 * 86400000);
-  
-// ===== CẢNH BÁO =====
-
-const today = new Date();
-today.setHours(0,0,0,0);
-
-let warn30="",warn20="",b30="",b20="";
-let f30="Bình thường",f20="Bình thường";
-
-if(today>=date30){
- warn30="⚠️ <b>Báo cáo Quản lý giải tồn</b>";
- b30="blink30";
- f30="Giải tồn";
-}
-
-if(today>=date20){
- warn20="⚠️ <b>Rút hàng khỏi quầy</b>";
- b20="blink20";
- f20="Rút hàng";
-}
-
-// ===== HIỂN THỊ =====
-
-result.innerHTML=`
+ result.innerHTML=`
 <div class="border p-3 mb-3 ${b30}">
-<b>MỐC 30%</b><br>
-📅 ${date30.toLocaleDateString("vi-VN")}
+<b>MỐC 30%</b><br>📅 ${date30.toLocaleDateString("vi-VN")}
 <div>${warn30||"<span class='text-green-700'>Trong ngưỡng an toàn</span>"}</div>
 </div>
 
 <div class="border p-3 ${b20}">
-<b>MỐC 20%</b><br>
-📅 ${date20.toLocaleDateString("vi-VN")}
+<b>MỐC 20%</b><br>📅 ${date20.toLocaleDateString("vi-VN")}
 <div>${warn20||"<span class='text-green-700'>Trong ngưỡng an toàn</span>"}</div>
-</div>
-`;
+</div>`;
 
-saveHistory(nsxD,hsdD,date30,date20,f30,f20);
+saveHistory(nsxD, hsdD, date30, date20, f30, f20);
 autoCleanExpired();
 
-if(today>=date20) showPopup("20");
-else if(today>=date30) showPopup("30");
-
+ if(today>=date20) showPopup("20");
+ else if(today>=date30) showPopup("30");
 }
+
 function saveHistory(nsxD, hsdD, date30, date20, f30, f20){
 
    const history = JSON.parse(localStorage.getItem(historyKey)) || [];

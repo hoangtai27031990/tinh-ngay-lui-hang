@@ -292,9 +292,10 @@ body{background:#f3f4f6}
 </div>
 
 <!-- BANNER XIN QUYỀN THÔNG BÁO -->
+<!-- Chỉ hiện khi chưa cấp quyền VÀ chưa từng nhấn "Bật ngay" thành công -->
 <div id="notifBanner" class="hidden">
   <span>🔔</span>
-  <span>Bật thông báo để nhắc kiểm date lúc <b>08:00</b> mỗi ngày</span>
+  <span>Bật thông báo để nhắc kiểm date lúc <b>08:00</b> &amp; <b>14:00</b> mỗi ngày</span>
   <button onclick="requestNotifPermission()">Bật ngay</button>
   <button class="notif-dismiss" onclick="dismissNotifBanner()" title="Đóng">×</button>
 </div>
@@ -447,17 +448,13 @@ body{background:#f3f4f6}
 <script>
 /* ================= DATE QUICK ENTRY ================= */
 function handleDateInput(el, targetId){
-  let raw = el.value.replace(/\D/g, ""); // chỉ giữ số
-
-  // Tự thêm dấu / khi gõ đủ 2, 4 ký tự
+  let raw = el.value.replace(/\D/g, "");
   if(raw.length > 4){
     raw = raw.slice(0,2) + "/" + raw.slice(2,4) + "/" + raw.slice(4,8);
   } else if(raw.length > 2){
     raw = raw.slice(0,2) + "/" + raw.slice(2);
   }
   el.value = raw;
-
-  // Chỉ parse khi đủ 8 số
   const digits = el.value.replace(/\D/g,"");
   if(digits.length === 8){
     parseDateInput(el, targetId, digits);
@@ -479,33 +476,16 @@ function parseDateInput(el, targetId, digits){
   const d = digits.slice(0,2);
   const m = digits.slice(2,4);
   const y = digits.slice(4,8);
-
   const day   = parseInt(d, 10);
   const month = parseInt(m, 10);
   const year  = parseInt(y, 10);
-
-  // Validate cơ bản
-  if(month < 1 || month > 12){
-    setDateError(el, targetId, "Tháng không hợp lệ (01–12)"); return;
-  }
-  if(day < 1 || day > 31){
-    setDateError(el, targetId, "Ngày không hợp lệ (01–31)"); return;
-  }
-  if(year < 2000 || year > 2100){
-    setDateError(el, targetId, "Năm không hợp lệ (2000–2100)"); return;
-  }
-
-  // Kiểm tra ngày tháng thực tế
+  if(month < 1 || month > 12){ setDateError(el, targetId, "Tháng không hợp lệ (01–12)"); return; }
+  if(day < 1 || day > 31){ setDateError(el, targetId, "Ngày không hợp lệ (01–31)"); return; }
+  if(year < 2000 || year > 2100){ setDateError(el, targetId, "Năm không hợp lệ (2000–2100)"); return; }
   const dateObj = new Date(year, month - 1, day);
-  if(dateObj.getMonth() !== month - 1 || dateObj.getDate() !== day){
-    setDateError(el, targetId, "Ngày không tồn tại"); return;
-  }
-
-  // Gán vào input hidden (yyyy-mm-dd)
+  if(dateObj.getMonth() !== month - 1 || dateObj.getDate() !== day){ setDateError(el, targetId, "Ngày không tồn tại"); return; }
   const iso = `${y}-${m}-${d}`;
   document.getElementById(targetId).value = iso;
-
-  // Hiện preview xanh
   const preview = document.getElementById(targetId + "Preview");
   preview.textContent = `✅ ${d}/${m}/${y}`;
   preview.className = "date-preview ok";
@@ -765,11 +745,10 @@ function renderHistory(){
     const m20   = new Date(x.M20); m20.setHours(0,0,0,0);
     const hsd   = new Date(x.HSD); hsd.setHours(0,0,0,0);
 
-    const days30 = diffDays(today, m30);  // negative = đã qua
+    const days30 = diffDays(today, m30);
     const days20 = diffDays(today, m20);
     const daysHsd = diffDays(today, hsd);
 
-    // --- Tag mốc 30% ---
     let tag30 = "";
     if(days30 < 0){
       tag30 = `<span class="tag tag-dark">⚠️ Đã qua ${Math.abs(days30)} ngày — Giải tồn</span>`;
@@ -779,7 +758,6 @@ function renderHistory(){
       tag30 = `<span class="tag tag-green">✅ Còn ${days30} ngày → 30%</span>`;
     }
 
-    // --- Tag mốc 20% ---
     let tag20 = "";
     if(days20 < 0){
       tag20 = `<span class="tag tag-red">🔴 Đã qua ${Math.abs(days20)} ngày — Rút hàng</span>`;
@@ -787,7 +765,6 @@ function renderHistory(){
       tag20 = `<span class="tag tag-yellow">⏳ Còn ${days20} ngày → 20%</span>`;
     }
 
-    // --- Tag HSD ---
     let tagHsd = "";
     if(daysHsd < 0){
       tagHsd = `<span class="tag tag-red">❌ Hết hạn ${Math.abs(daysHsd)} ngày trước</span>`;
@@ -1012,16 +989,13 @@ function showToast(message = "Đã xử lý"){
 }
 
 /* ================= SERVICE WORKER & PUSH NOTIFICATION ================= */
-
 let swReg = null;
 
 async function initServiceWorker(){
   if(!("serviceWorker" in navigator)) return;
-
   try{
     swReg = await navigator.serviceWorker.register("sw.js", { scope: "./" });
 
-    // Lắng nghe SW yêu cầu data
     navigator.serviceWorker.addEventListener("message", e => {
       if(e.data && e.data.type === "REQUEST_PRODUCTS"){
         const products = JSON.parse(localStorage.getItem(historyKey) || "[]");
@@ -1029,7 +1003,6 @@ async function initServiceWorker(){
       }
     });
 
-    // Kích hoạt lịch trong SW
     const sw = swReg.active || swReg.waiting || swReg.installing;
     if(sw) sw.postMessage({ type: "SCHEDULE_DAILY" });
 
@@ -1051,9 +1024,10 @@ async function initServiceWorker(){
 
 function checkShowNotifBanner(){
   if(!("Notification" in window)) return;
-  const dismissed = localStorage.getItem("notif_dismissed");
-  if(dismissed) return;
+  // Đã cấp quyền rồi → không cần hiện banner nữa
   if(Notification.permission === "granted") return;
+  // Đã dismiss hoặc đã từng bật thành công → không hiện
+  if(localStorage.getItem("notif_dismissed") || localStorage.getItem("notif_enabled")) return;
   document.getElementById("notifBanner").classList.remove("hidden");
 }
 
@@ -1063,15 +1037,20 @@ async function requestNotifPermission(){
     return;
   }
   const result = await Notification.requestPermission();
+  // Ẩn banner ngay sau khi người dùng đã tương tác (dù đồng ý hay từ chối)
   document.getElementById("notifBanner").classList.add("hidden");
+
   if(result === "granted"){
-    // Gửi lịch vào SW
+    // Lưu flag → banner không bao giờ hiện lại
+    localStorage.setItem("notif_enabled", "1");
     if(swReg){
       const sw = swReg.active || swReg.waiting;
       if(sw) sw.postMessage({ type: "SCHEDULE_DAILY" });
     }
-    showToast("✅ Đã bật thông báo — nhắc lúc 08:00 mỗi ngày");
+    showToast("✅ Đã bật thông báo — nhắc lúc 08:00 & 14:00 mỗi ngày");
   } else {
+    // Từ chối → lưu dismissed để không hỏi lại
+    localStorage.setItem("notif_dismissed", "1");
     showToast("⚠️ Bạn đã từ chối quyền thông báo");
   }
 }
@@ -1081,7 +1060,7 @@ function dismissNotifBanner(){
   localStorage.setItem("notif_dismissed", "1");
 }
 
-/* Test thông báo ngay lập tức (dùng để kiểm tra) */
+/* Test thông báo ngay lập tức */
 function testNotification(){
   if(Notification.permission !== "granted"){
     alert("Chưa cấp quyền thông báo.");

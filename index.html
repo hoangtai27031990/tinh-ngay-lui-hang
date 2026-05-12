@@ -1023,12 +1023,19 @@ async function initServiceWorker(){
 }
 
 function checkShowNotifBanner(){
-  if(!("Notification" in window)) return;
-  // Đã cấp quyền rồi → không cần hiện banner nữa
-  if(Notification.permission === "granted") return;
-  // Đã dismiss hoặc đã từng bật thành công → không hiện
-  if(localStorage.getItem("notif_dismissed") || localStorage.getItem("notif_enabled")) return;
-  document.getElementById("notifBanner").classList.remove("hidden");
+  const banner = document.getElementById("notifBanner");
+  if(!("Notification" in window)){ banner.classList.add("hidden"); return; }
+  // Ẩn nếu đã granted, denied, đã nhấn Bật ngay, hoặc đã dismiss
+  if(
+    Notification.permission === "granted" ||
+    Notification.permission === "denied"  ||
+    localStorage.getItem("notif_enabled") ||
+    localStorage.getItem("notif_dismissed")
+  ){
+    banner.classList.add("hidden");
+    return;
+  }
+  banner.classList.remove("hidden");
 }
 
 async function requestNotifPermission(){
@@ -1075,6 +1082,7 @@ function testNotification(){
 }
 
 /* ================= INIT ================= */
+checkShowNotifBanner();
 autoCleanExpired();
 renderHistory();
 renderOverview();

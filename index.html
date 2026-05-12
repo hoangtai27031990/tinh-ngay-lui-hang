@@ -1036,20 +1036,21 @@ async function requestNotifPermission(){
     alert("Trình duyệt này không hỗ trợ thông báo.");
     return;
   }
-  const result = await Notification.requestPermission();
-  // Ẩn banner ngay sau khi người dùng đã tương tác (dù đồng ý hay từ chối)
+  // Ẩn banner & lưu flag NGAY KHI nhấn — không đợi kết quả permission
   document.getElementById("notifBanner").classList.add("hidden");
+  localStorage.setItem("notif_enabled", "1");
+
+  const result = await Notification.requestPermission();
 
   if(result === "granted"){
-    // Lưu flag → banner không bao giờ hiện lại
-    localStorage.setItem("notif_enabled", "1");
     if(swReg){
       const sw = swReg.active || swReg.waiting;
       if(sw) sw.postMessage({ type: "SCHEDULE_DAILY" });
     }
     showToast("✅ Đã bật thông báo — nhắc lúc 08:00 & 14:00 mỗi ngày");
   } else {
-    // Từ chối → lưu dismissed để không hỏi lại
+    // Từ chối → đổi flag thành dismissed
+    localStorage.removeItem("notif_enabled");
     localStorage.setItem("notif_dismissed", "1");
     showToast("⚠️ Bạn đã từ chối quyền thông báo");
   }

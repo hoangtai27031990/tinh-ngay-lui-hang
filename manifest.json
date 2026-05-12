@@ -1,0 +1,25 @@
+{
+  "name": "Quản lý HSD – Saigon Co.op",
+  "short_name": "HSD Co.op",
+  "description": "Hệ thống quản lý hạn sử dụng sản phẩm Saigon Co.op",
+  "start_url": "/tinh-ngay-lui-hang/",
+  "scope": "/tinh-ngay-lui-hang/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#c40018",
+  "background_color": "#f3f4f6",
+  "icons": [
+    {
+      "src": "/tinh-ngay-lui-hang/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/tinh-ngay-lui-hang/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

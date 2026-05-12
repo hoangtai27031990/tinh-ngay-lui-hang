@@ -252,6 +252,7 @@ body{background:#f3f4f6}
     <button onclick="showPrint()" class="w-full text-left px-3 py-2 rounded bg-slate-100">🖨 In bảng giá quầy</button>
     <hr class="my-1">
     <button onclick="testNotification();toggleMenu()" class="w-full text-left px-3 py-2 rounded bg-blue-50 text-blue-700 text-sm">📨 Test thông báo ngay</button>
+    <button onclick="resetNotifAndAsk();toggleMenu()" class="w-full text-left px-3 py-2 rounded bg-yellow-50 text-yellow-700 text-sm">🔔 Bật lại thông báo</button>
   </div>
 </div>
 <div id="overlay" onclick="toggleMenu()"></div>
@@ -259,7 +260,10 @@ body{background:#f3f4f6}
 <!-- HEADER -->
 <div class="flex justify-between items-center mb-4 p-3 rounded-lg brand-bg text-white">
   <div class="font-bold text-lg">HỆ THỐNG QUẢN LÝ HSD</div>
-  <button onclick="toggleMenu()" class="text-2xl">☰</button>
+  <div class="flex items-center gap-3">
+    <button onclick="resetNotifAndAsk()" id="bellBtn" title="Thông báo" class="text-xl opacity-80 hover:opacity-100 transition-opacity">🔔</button>
+    <button onclick="toggleMenu()" class="text-2xl">☰</button>
+  </div>
 </div>
 
 <!-- POPUP XIN QUYỀN THÔNG BÁO -->
@@ -1037,11 +1041,11 @@ async function notifAllow(){
       const sw = swReg.active || swReg.waiting;
       if(sw) sw.postMessage({ type: "SCHEDULE_DAILY" });
     }
-    showToast("✅ Đã bật thông báo — nhắc lúc 08:00 & 14:00 mỗi ngày");
+    showToast("✅ Đã bật thông báo — nhắc lúc 08:00 & 14:00 mỗi ngày"); updateBellIcon();
   } else {
     localStorage.removeItem("notif_enabled");
     localStorage.setItem("notif_dismissed", "1");
-    showToast("⚠️ Quyền thông báo bị từ chối");
+    showToast("⚠️ Quyền thông báo bị từ chối"); updateBellIcon();
   }
 }
 
@@ -1049,6 +1053,12 @@ function notifDeny(){
   closeNotifPopup();
   localStorage.setItem("notif_dismissed", "1");
   showToast("Bạn có thể bật thông báo sau trong cài đặt trình duyệt");
+}
+
+function resetNotifAndAsk(){
+  localStorage.removeItem("notif_enabled");
+  localStorage.removeItem("notif_dismissed");
+  checkShowNotifPopup();
 }
 
 /* Test thông báo ngay lập tức */
@@ -1064,6 +1074,19 @@ function testNotification(){
   }
 }
 
+
+function updateBellIcon(){
+  const btn = document.getElementById("bellBtn");
+  if(!btn) return;
+  if(!("Notification" in window)){
+    btn.textContent = "🔕"; btn.title = "Trình duyệt không hỗ trợ thông báo"; return;
+  }
+  if(Notification.permission === "granted"){
+    btn.textContent = "🔔"; btn.title = "Thông báo đã bật";
+  } else {
+    btn.textContent = "🔕"; btn.title = "Nhấn để bật thông báo";
+  }
+}
 /* ================= INIT ================= */
 checkShowNotifPopup();
 autoCleanExpired();

@@ -120,6 +120,22 @@ body{background:#f3f4f6}
   transform: translateY(0);
 }
 
+/* ================= DATE QUICK ENTRY ================= */
+.date-wrap{ position: relative; }
+.date-hidden{ display: none; }
+.date-quick{ font-size: 15px; letter-spacing: .5px; }
+.date-quick.ok { border-color: #16a34a; background: #f0fdf4; }
+.date-quick.err{ border-color: #dc2626; background: #fff1f2; }
+.date-preview{
+  display: block;
+  font-size: 12px;
+  margin-top: 3px;
+  font-weight: 600;
+  min-height: 16px;
+}
+.date-preview.ok { color: #15803d; }
+.date-preview.err{ color: #dc2626; }
+
 /* ================= NOTIFICATION BANNER ================= */
 #notifBanner{
   background:#1e3a5f;
@@ -307,12 +323,28 @@ body{background:#f3f4f6}
 
   <div id="nsxBlock">
     <label class="font-semibold">Ngày sản xuất (NSX)</label>
-    <input type="date" id="nsx" class="border p-2 rounded w-full">
+    <div class="date-wrap">
+      <input type="text" id="nsxText" class="border p-2 rounded w-full date-quick"
+             placeholder="ddmmyyyy  hoặc  dd/mm/yyyy"
+             maxlength="10" inputmode="numeric"
+             oninput="handleDateInput(this,'nsx')"
+             onblur="finalizeDateInput(this,'nsx')">
+      <input type="date" id="nsx" class="date-hidden">
+      <span id="nsxPreview" class="date-preview"></span>
+    </div>
   </div>
 
   <div id="hsdBlock">
     <label class="font-semibold">Hạn sử dụng (HSD)</label>
-    <input type="date" id="hsd" class="border p-2 rounded w-full">
+    <div class="date-wrap">
+      <input type="text" id="hsdText" class="border p-2 rounded w-full date-quick"
+             placeholder="ddmmyyyy  hoặc  dd/mm/yyyy"
+             maxlength="10" inputmode="numeric"
+             oninput="handleDateInput(this,'hsd')"
+             onblur="finalizeDateInput(this,'hsd')">
+      <input type="date" id="hsd" class="date-hidden">
+      <span id="hsdPreview" class="date-preview"></span>
+    </div>
   </div>
 
   <div id="beforeHsdBlock" class="hidden">
@@ -413,6 +445,91 @@ body{background:#f3f4f6}
 <div id="toastBox" class="toast"></div>
 
 <script>
+/* ================= DATE QUICK ENTRY ================= */
+function handleDateInput(el, targetId){
+  let raw = el.value.replace(/\D/g, ""); // chỉ giữ số
+
+  // Tự thêm dấu / khi gõ đủ 2, 4 ký tự
+  if(raw.length > 4){
+    raw = raw.slice(0,2) + "/" + raw.slice(2,4) + "/" + raw.slice(4,8);
+  } else if(raw.length > 2){
+    raw = raw.slice(0,2) + "/" + raw.slice(2);
+  }
+  el.value = raw;
+
+  // Chỉ parse khi đủ 8 số
+  const digits = el.value.replace(/\D/g,"");
+  if(digits.length === 8){
+    parseDateInput(el, targetId, digits);
+  } else {
+    clearDatePreview(el, targetId);
+  }
+}
+
+function finalizeDateInput(el, targetId){
+  const digits = el.value.replace(/\D/g,"");
+  if(digits.length === 8){
+    parseDateInput(el, targetId, digits);
+  } else if(digits.length > 0){
+    setDateError(el, targetId, "Nhập đủ 8 số — ví dụ: 01012026");
+  }
+}
+
+function parseDateInput(el, targetId, digits){
+  const d = digits.slice(0,2);
+  const m = digits.slice(2,4);
+  const y = digits.slice(4,8);
+
+  const day   = parseInt(d, 10);
+  const month = parseInt(m, 10);
+  const year  = parseInt(y, 10);
+
+  // Validate cơ bản
+  if(month < 1 || month > 12){
+    setDateError(el, targetId, "Tháng không hợp lệ (01–12)"); return;
+  }
+  if(day < 1 || day > 31){
+    setDateError(el, targetId, "Ngày không hợp lệ (01–31)"); return;
+  }
+  if(year < 2000 || year > 2100){
+    setDateError(el, targetId, "Năm không hợp lệ (2000–2100)"); return;
+  }
+
+  // Kiểm tra ngày tháng thực tế
+  const dateObj = new Date(year, month - 1, day);
+  if(dateObj.getMonth() !== month - 1 || dateObj.getDate() !== day){
+    setDateError(el, targetId, "Ngày không tồn tại"); return;
+  }
+
+  // Gán vào input hidden (yyyy-mm-dd)
+  const iso = `${y}-${m}-${d}`;
+  document.getElementById(targetId).value = iso;
+
+  // Hiện preview xanh
+  const preview = document.getElementById(targetId + "Preview");
+  preview.textContent = `✅ ${d}/${m}/${y}`;
+  preview.className = "date-preview ok";
+  el.classList.remove("err");
+  el.classList.add("ok");
+}
+
+function setDateError(el, targetId, msg){
+  document.getElementById(targetId).value = "";
+  const preview = document.getElementById(targetId + "Preview");
+  preview.textContent = "⚠️ " + msg;
+  preview.className = "date-preview err";
+  el.classList.remove("ok");
+  el.classList.add("err");
+}
+
+function clearDatePreview(el, targetId){
+  document.getElementById(targetId).value = "";
+  const preview = document.getElementById(targetId + "Preview");
+  preview.textContent = "";
+  preview.className = "date-preview";
+  el.classList.remove("ok","err");
+}
+
 /* ================= UTILS ================= */
 function isIOS(){ return /iPhone|iPad|iPod/i.test(navigator.userAgent); }
 
@@ -771,6 +888,14 @@ function closePopup(){
 function resetForm(){
   ["productName","barcode","nsx","hsd","beforeHsdValue","periodValue"].forEach(id => {
     document.getElementById(id).value = "";
+  });
+  ["nsxText","hsdText"].forEach(id => {
+    const el = document.getElementById(id);
+    if(el){ el.value = ""; el.classList.remove("ok","err"); }
+  });
+  ["nsxPreview","hsdPreview"].forEach(id => {
+    const el = document.getElementById(id);
+    if(el){ el.textContent = ""; el.className = "date-preview"; }
   });
   document.getElementById("result").innerHTML = "";
 }

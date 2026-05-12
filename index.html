@@ -136,36 +136,7 @@ body{background:#f3f4f6}
 .date-preview.ok { color: #15803d; }
 .date-preview.err{ color: #dc2626; }
 
-/* ================= NOTIFICATION BANNER ================= */
-#notifBanner{
-  background:#1e3a5f;
-  color:#fff;
-  border-radius:10px;
-  padding:10px 12px;
-  font-size:13px;
-  display:flex;
-  align-items:center;
-  gap:10px;
-  margin-bottom:12px;
-}
-#notifBanner button{
-  margin-left:auto;
-  background:#c40018;
-  color:#fff;
-  border:none;
-  border-radius:6px;
-  padding:5px 12px;
-  font-size:12px;
-  cursor:pointer;
-  white-space:nowrap;
-}
-#notifBanner .notif-dismiss{
-  background:transparent;
-  color:#aaa;
-  font-size:18px;
-  padding:0 4px;
-  margin-left:4px;
-}
+/* notification banner removed */
 
 .stat-card{
   border-radius:8px;
@@ -291,13 +262,27 @@ body{background:#f3f4f6}
   <button onclick="toggleMenu()" class="text-2xl">☰</button>
 </div>
 
-<!-- BANNER XIN QUYỀN THÔNG BÁO -->
-<!-- Chỉ hiện khi chưa cấp quyền VÀ chưa từng nhấn "Bật ngay" thành công -->
-<div id="notifBanner" class="hidden">
-  <span>🔔</span>
-  <span>Bật thông báo để nhắc kiểm date lúc <b>08:00</b> &amp; <b>14:00</b> mỗi ngày</span>
-  <button onclick="requestNotifPermission()">Bật ngay</button>
-  <button class="notif-dismiss" onclick="dismissNotifBanner()" title="Đóng">×</button>
+<!-- POPUP XIN QUYỀN THÔNG BÁO -->
+<div id="notifPopup"
+     class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-50 z-[3000]">
+  <div class="bg-white rounded-2xl w-[88%] max-w-sm p-6 text-center shadow-xl">
+    <div class="text-4xl mb-3">🔔</div>
+    <div class="font-bold text-lg mb-2 text-gray-800">Bật thông báo nhắc nhở</div>
+    <div class="text-sm text-gray-500 mb-5">
+      Hệ thống sẽ nhắc bạn kiểm tra date lúc<br>
+      <b class="text-gray-800">08:00</b> và <b class="text-gray-800">14:00</b> mỗi ngày.
+    </div>
+    <div class="flex flex-col gap-2">
+      <button onclick="notifAllow()"
+              class="brand-bg text-white py-2 rounded-lg font-semibold">
+        ✅ Đồng ý bật thông báo
+      </button>
+      <button onclick="notifDeny()"
+              class="bg-gray-100 text-gray-500 py-2 rounded-lg text-sm">
+        Không, cảm ơn
+      </button>
+    </div>
+  </div>
 </div>
 
 <!-- ================= MAIN APP ================= -->
@@ -1019,36 +1004,34 @@ async function initServiceWorker(){
     console.warn("SW register failed:", err);
   }
 
-  checkShowNotifBanner();
+  checkShowNotifPopup();
 }
 
-function checkShowNotifBanner(){
-  const banner = document.getElementById("notifBanner");
-  if(!("Notification" in window)){ banner.classList.add("hidden"); return; }
-  // Ẩn nếu đã granted, denied, đã nhấn Bật ngay, hoặc đã dismiss
+function closeNotifPopup(){
+  const p = document.getElementById("notifPopup");
+  p.classList.add("hidden");
+  p.classList.remove("flex");
+}
+
+function checkShowNotifPopup(){
+  if(!("Notification" in window)) return;
   if(
     Notification.permission === "granted" ||
     Notification.permission === "denied"  ||
     localStorage.getItem("notif_enabled") ||
     localStorage.getItem("notif_dismissed")
-  ){
-    banner.classList.add("hidden");
-    return;
-  }
-  banner.classList.remove("hidden");
+  ) return;
+  // Hiện popup
+  const p = document.getElementById("notifPopup");
+  p.classList.remove("hidden");
+  p.classList.add("flex");
 }
 
-async function requestNotifPermission(){
-  if(!("Notification" in window)){
-    alert("Trình duyệt này không hỗ trợ thông báo.");
-    return;
-  }
-  // Ẩn banner & lưu flag NGAY KHI nhấn — không đợi kết quả permission
-  document.getElementById("notifBanner").classList.add("hidden");
+async function notifAllow(){
+  closeNotifPopup();
   localStorage.setItem("notif_enabled", "1");
-
+  if(!("Notification" in window)){ showToast("⚠️ Trình duyệt không hỗ trợ thông báo"); return; }
   const result = await Notification.requestPermission();
-
   if(result === "granted"){
     if(swReg){
       const sw = swReg.active || swReg.waiting;
@@ -1056,16 +1039,16 @@ async function requestNotifPermission(){
     }
     showToast("✅ Đã bật thông báo — nhắc lúc 08:00 & 14:00 mỗi ngày");
   } else {
-    // Từ chối → đổi flag thành dismissed
     localStorage.removeItem("notif_enabled");
     localStorage.setItem("notif_dismissed", "1");
-    showToast("⚠️ Bạn đã từ chối quyền thông báo");
+    showToast("⚠️ Quyền thông báo bị từ chối");
   }
 }
 
-function dismissNotifBanner(){
-  document.getElementById("notifBanner").classList.add("hidden");
+function notifDeny(){
+  closeNotifPopup();
   localStorage.setItem("notif_dismissed", "1");
+  showToast("Bạn có thể bật thông báo sau trong cài đặt trình duyệt");
 }
 
 /* Test thông báo ngay lập tức */
@@ -1082,7 +1065,7 @@ function testNotification(){
 }
 
 /* ================= INIT ================= */
-checkShowNotifBanner();
+checkShowNotifPopup();
 autoCleanExpired();
 renderHistory();
 renderOverview();

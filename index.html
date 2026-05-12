@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -66,71 +65,39 @@ body{background:#f3f4f6}
   50%{top:50%}
   100%{top:70%}
 }
-  /* ================= PULSE POPUP ================= */
 
-/* Pulse màu cam – mốc 30% */
+/* ================= PULSE POPUP ================= */
 @keyframes pulseOrange {
-  0% {
-    box-shadow: 0 0 0 0 rgba(251,146,60,0.45);
-  }
-  70% {
-    box-shadow: 0 0 0 16px rgba(251,146,60,0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(251,146,60,0);
-  }
+  0% { box-shadow: 0 0 0 0 rgba(251,146,60,0.45); }
+  70% { box-shadow: 0 0 0 16px rgba(251,146,60,0); }
+  100% { box-shadow: 0 0 0 0 rgba(251,146,60,0); }
 }
-
-/* Pulse màu đỏ – mốc 20% */
 @keyframes pulseRed {
-  0% {
-    box-shadow: 0 0 0 0 rgba(239,68,68,0.5);
-  }
-  70% {
-    box-shadow: 0 0 0 20px rgba(239,68,68,0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(239,68,68,0);
-  }
+  0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+  70% { box-shadow: 0 0 0 20px rgba(239,68,68,0); }
+  100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
 }
-
-/* Class áp dụng */
 .popup-pulse-30 {
   border: 3px solid #fb923c;
   animation: pulseOrange 1.4s infinite;
 }
-
 .popup-pulse-20 {
   border: 3px solid #ef4444;
   animation: pulseRed 0.9s infinite;
 }
-  @keyframes pulseCheck {
-  0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
-  70% { box-shadow: 0 0 0 25px rgba(239,68,68,0); }
-  100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
-}
 
 /* ================= CHECK DATE PULSE ================= */
-
 @keyframes checkDatePulse {
-  0% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(220,38,38,0.45);
-  }
-  60% {
-    transform: scale(1.02);
-    box-shadow: 0 0 0 20px rgba(220,38,38,0);
-  }
-  100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(220,38,38,0);
-  }
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220,38,38,0.45); }
+  60% { transform: scale(1.02); box-shadow: 0 0 0 20px rgba(220,38,38,0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220,38,38,0); }
 }
-
 .checkdate-pulse {
   border: 3px solid #dc2626;
   animation: checkDatePulse 1.5s ease-out infinite;
 }
+
+/* ================= TOAST ================= */
 .toast{
   position: fixed;
   right: 20px;
@@ -146,17 +113,82 @@ body{background:#f3f4f6}
   z-index: 9999;
   pointer-events: none;
 }
-
 .toast.show{
   opacity: 1;
   transform: translateY(0);
+}
+
+/* ================= OVERVIEW CARDS ================= */
+.stat-card{
+  border-radius:8px;
+  padding:6px 4px;
+  text-align:center;
+  flex:1;
+  min-width:0;
+}
+.stat-card .stat-num{
+  font-size:17px;
+  font-weight:700;
+  line-height:1.2;
+}
+.stat-card .stat-label{
+  font-size:10px;
+  margin-top:1px;
+  white-space:nowrap;
+}
+
+/* ================= HISTORY CARD ================= */
+.hist-card{
+  border:1px solid #e5e7eb;
+  border-radius:10px;
+  padding:10px 12px;
+  background:#fff;
+  margin-bottom:8px;
+}
+.hist-card .hist-name{
+  font-weight:700;
+  font-size:14px;
+  margin-bottom:2px;
+}
+.hist-card .hist-meta{
+  font-size:12px;
+  color:#6b7280;
+  margin-bottom:6px;
+}
+.hist-card .tags{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-bottom:6px;
+}
+.tag{
+  font-size:12px;
+  padding:3px 9px;
+  border-radius:20px;
+  font-weight:600;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+}
+.tag-orange{background:#fff7ed;color:#c2410c;border:1px solid #fb923c}
+.tag-yellow{background:#fffbeb;color:#92400e;border:1px solid #fbbf24}
+.tag-blue  {background:#eff6ff;color:#1d4ed8;border:1px solid #93c5fd}
+.tag-green {background:#f0fdf4;color:#15803d;border:1px solid #86efac}
+.tag-red   {background:#fff1f2;color:#be123c;border:1px solid #fca5a5}
+.tag-dark  {background:#1e293b;color:#fff;border:1px solid #1e293b}
+.hist-milestones{
+  font-size:11px;
+  color:#9ca3af;
+  border-top:1px solid #f3f4f6;
+  padding-top:5px;
+  margin-top:4px;
 }
 </style>
 </head>
 
 <body class="max-w-xl mx-auto p-3">
 
-<!-- POPUP -->
+<!-- POPUP CẢNH BÁO -->
 <div id="alertPopup" class="hidden items-center justify-center">
   <div id="popupBox" class="bg-white p-5 rounded-xl w-[90%] max-w-sm text-center">
     <div id="popupTitle" class="font-bold text-lg mb-2"></div>
@@ -164,28 +196,30 @@ body{background:#f3f4f6}
     <button onclick="closePopup()" class="brand-bg text-white px-4 py-2 rounded">Đã hiểu</button>
   </div>
 </div>
+
 <!-- POPUP KIỂM DATE -->
 <div id="checkDateBox"
      class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-50 z-[2100]">
-
-<div id="checkDateInner"
-     class="bg-white p-5 rounded-xl w-[95%] max-w-md text-center">
-
-    <div class="font-bold text-lg mb-3 text-red-600">
-      SẢN PHẨM CẦN KIỂM DATE
-    </div>
-
-    <div id="checkDateList"
-         class="text-left space-y-3 max-h-80 overflow-auto">
-    </div>
-
+  <div id="checkDateInner"
+       class="bg-white p-5 rounded-xl w-[95%] max-w-md text-center">
+    <div class="font-bold text-lg mb-3 text-red-600">SẢN PHẨM CẦN KIỂM DATE</div>
+    <div id="checkDateList" class="text-left space-y-3 max-h-80 overflow-auto"></div>
     <div class="mt-4">
-      <button onclick="closeCheckDatePopup()"
-        class="bg-gray-600 text-white px-4 py-2 rounded">
-        ĐÃ HIỂU
-      </button>
+      <button onclick="closeCheckDatePopup()" class="bg-gray-600 text-white px-4 py-2 rounded">ĐÃ HIỂU</button>
     </div>
+  </div>
+</div>
 
+<!-- POPUP XÁC NHẬN XÓA -->
+<div id="confirmBox"
+     class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-50 z-[2200]">
+  <div class="bg-white p-5 rounded-xl w-[90%] max-w-sm text-center">
+    <div class="font-bold text-lg mb-3 text-red-600">XÁC NHẬN XÓA LỊCH SỬ</div>
+    <div class="mb-4 text-sm">Thao tác này sẽ xóa toàn bộ dữ liệu và không thể khôi phục.</div>
+    <div class="flex justify-center gap-3">
+      <button onclick="confirmDeleteHistory()" class="bg-red-600 text-white px-4 py-2 rounded">XÓA</button>
+      <button onclick="closeConfirmPopup()" class="bg-gray-500 text-white px-4 py-2 rounded">HỦY</button>
+    </div>
   </div>
 </div>
 
@@ -210,165 +244,158 @@ body{background:#f3f4f6}
 <!-- ================= MAIN APP ================= -->
 <div id="mainApp">
 
+<!-- FORM NHẬP -->
 <div class="card p-4 space-y-3">
-<label class="font-semibold">Tên sản phẩm (Nên nhập để dễ kiểm soát)</label>
-<input id="productName" class="border p-2 rounded w-full" placeholder="Ví dụ: Sữa tươi Vinamilk 1L">
-<label class="font-semibold">Barcode sản phẩm</label>
-<div class="flex gap-2">
-<input id="barcode" class="border p-2 rounded w-full">
-<button onclick="startScan()" class="brand-bg text-white px-3 rounded">Quét</button>
-</div>
-
-<div id="reader" class="hidden"></div>
-<label class="font-semibold">Chọn loại tính</label>
-<select id="calcMode" class="border p-2 rounded w-full" onchange="changeCalcMode()">
-  <option value="full">Có NSX & HSD</option>
-  <option value="hsdBack">Chỉ có HẠN SỬ DỤNG</option>
-  <option value="nsxPeriod">Chỉ có NGÀY SẢN XUẤT</option>
-</select>
-
-<div id="nsxBlock">
-  <label class="font-semibold">Ngày sản xuất (NSX)</label>
-  <input type="date" id="nsx" class="border p-2 rounded w-full">
-</div>
-
-<div id="hsdBlock">
-  <label class="font-semibold">Hạn sử dụng (HSD)</label>
-  <input type="date" id="hsd" class="border p-2 rounded w-full">
-</div>
-<!-- Thời gian trước HSD -->
-<div id="beforeHsdBlock" class="hidden">
-  <label class="font-semibold">Thời gian trước HSD</label>
+  <label class="font-semibold">Tên sản phẩm (Nên nhập để dễ kiểm soát)</label>
+  <input id="productName" class="border p-2 rounded w-full" placeholder="Ví dụ: Sữa tươi Vinamilk 1L">
+  <label class="font-semibold">Barcode sản phẩm</label>
   <div class="flex gap-2">
-    <input type="number" id="beforeHsdValue" class="border p-2 rounded w-1/2" placeholder="Ví dụ: 6">
-    <select id="beforeHsdUnit" class="border p-2 rounded w-1/2">
-      <option value="day">Ngày</option>
-      <option value="month">Tháng</option>
-      <option value="year">Năm</option>
-    </select>
+    <input id="barcode" class="border p-2 rounded w-full">
+    <button onclick="startScan()" class="brand-bg text-white px-3 rounded">Quét</button>
+  </div>
+
+  <div id="reader" class="hidden"></div>
+
+  <label class="font-semibold">Chọn loại tính</label>
+  <select id="calcMode" class="border p-2 rounded w-full" onchange="changeCalcMode()">
+    <option value="full">Có NSX & HSD</option>
+    <option value="hsdBack">Chỉ có HẠN SỬ DỤNG</option>
+    <option value="nsxPeriod">Chỉ có NGÀY SẢN XUẤT</option>
+  </select>
+
+  <div id="nsxBlock">
+    <label class="font-semibold">Ngày sản xuất (NSX)</label>
+    <input type="date" id="nsx" class="border p-2 rounded w-full">
+  </div>
+
+  <div id="hsdBlock">
+    <label class="font-semibold">Hạn sử dụng (HSD)</label>
+    <input type="date" id="hsd" class="border p-2 rounded w-full">
+  </div>
+
+  <div id="beforeHsdBlock" class="hidden">
+    <label class="font-semibold">Thời gian trước HSD</label>
+    <div class="flex gap-2">
+      <input type="number" id="beforeHsdValue" class="border p-2 rounded w-1/2" placeholder="Ví dụ: 6">
+      <select id="beforeHsdUnit" class="border p-2 rounded w-1/2">
+        <option value="day">Ngày</option>
+        <option value="month">Tháng</option>
+        <option value="year">Năm</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="nsxPeriodBlock" class="hidden">
+    <label class="font-semibold">Thời gian sử dụng từ NSX</label>
+    <div class="flex gap-2">
+      <input type="number" id="periodValue" class="border p-2 rounded w-1/2" placeholder="Ví dụ: 6">
+      <select id="periodUnit" class="border p-2 rounded w-1/2">
+        <option value="day">Ngày</option>
+        <option value="month">Tháng</option>
+        <option value="year">Năm</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 gap-2 pt-2">
+    <button onclick="calculate()" class="brand-bg text-white py-2 rounded">TÍNH KẾT QUẢ</button>
+    <button onclick="resetForm()" class="bg-gray-500 text-white py-2 rounded">TÍNH LẠI</button>
+  </div>
+
+  <div id="result"></div>
+
+  <div class="grid grid-cols-2 gap-2 pt-2">
+    <button onclick="exportExcel()" class="bg-slate-700 text-white py-2 rounded">Xuất Excel</button>
+    <button onclick="clearHistory()" class="bg-red-600 text-white py-2 rounded">Xóa lịch sử</button>
+  </div>
+
+  <div id="statistic" class="text-sm pt-2"></div>
+</div>
+
+<!-- TỔNG QUAN (nhỏ gọn) -->
+<div class="card px-3 py-2 mt-4">
+  <div class="text-xs font-bold brand-text mb-2">Tổng quan</div>
+  <div class="flex gap-1.5">
+    <div class="stat-card bg-gray-50 border border-gray-200">
+      <div class="stat-num text-gray-800" id="ov-total">0</div>
+      <div class="stat-label text-gray-500">📦 Tổng SP</div>
+    </div>
+    <div class="stat-card bg-green-50 border border-green-200">
+      <div class="stat-num text-green-700" id="ov-safe">0</div>
+      <div class="stat-label text-green-600">✅ An toàn</div>
+    </div>
+    <div class="stat-card bg-amber-50 border border-amber-200">
+      <div class="stat-num text-amber-700" id="ov-30">0</div>
+      <div class="stat-label text-amber-600">⚠️ Giải tồn</div>
+    </div>
+    <div class="stat-card bg-red-50 border border-red-200">
+      <div class="stat-num text-red-600" id="ov-20">0</div>
+      <div class="stat-label text-red-500">🔴 Rút hàng</div>
+    </div>
+    <div class="stat-card bg-gray-900 border border-gray-700">
+      <div class="stat-num text-white" id="ov-exp">0</div>
+      <div class="stat-label text-gray-300">❌ Hết hạn</div>
+    </div>
   </div>
 </div>
 
-<!-- Thời gian sử dụng từ NSX -->
-<div id="nsxPeriodBlock" class="hidden">
-  <label class="font-semibold">Thời gian sử dụng từ NSX</label>
-  <div class="flex gap-2">
-    <input type="number" id="periodValue" class="border p-2 rounded w-1/2" placeholder="Ví dụ: 6">
-    <select id="periodUnit" class="border p-2 rounded w-1/2">
-      <option value="day">Ngày</option>
-      <option value="month">Tháng</option>
-      <option value="year">Năm</option>
-    </select>
-  </div>
-</div>
-
-<div class="grid grid-cols-2 gap-2 pt-2">
-<button onclick="calculate()" class="brand-bg text-white py-2 rounded">TÍNH KẾT QUẢ</button>
-<button onclick="resetForm()" class="bg-gray-500 text-white py-2 rounded">TÍNH LẠI</button>
-</div>
-
-<div id="result"></div>
-
-<div class="grid grid-cols-2 gap-2 pt-2">
-<button onclick="exportExcel()" class="bg-slate-700 text-white py-2 rounded">Xuất Excel</button>
-<button onclick="clearHistory()" class="bg-red-600 text-white py-2 rounded">Xóa lịch sử</button>
-</div>
-
-<div id="statistic" class="text-sm pt-2"></div>
-</div>
-
+<!-- LỊCH SỬ -->
 <div class="card p-3 mt-4">
-<h2 class="font-bold brand-text mb-2">Lịch sử tính toán</h2>
+  <h2 class="font-bold brand-text mb-2">Lịch sử tính toán</h2>
 
-<div class="flex gap-2 mb-2">
-  <button onclick="setFilter('all')" id="f-all" class="filter-btn active">Tất cả</button>
-  <button onclick="setFilter('30')" id="f-30" class="filter-btn">Giải tồn (30%)</button>
-  <button onclick="setFilter('20')" id="f-20" class="filter-btn">Rút hàng (20%)</button>
-</div>
+  <div class="flex gap-2 mb-3 flex-wrap">
+    <button onclick="setFilter('all')" id="f-all" class="filter-btn active">Tất cả</button>
+    <button onclick="setFilter('30')" id="f-30" class="filter-btn">Giải tồn (30%)</button>
+    <button onclick="setFilter('20')" id="f-20" class="filter-btn">Rút hàng (20%)</button>
+  </div>
 
-<div id="history" class="text-sm space-y-1 max-h-64 overflow-auto"></div>
+  <div id="historyList" class="text-sm max-h-[480px] overflow-auto"></div>
 </div>
 </div>
 
 <!-- ================= PRINT APP ================= -->
 <div id="printApp" class="hidden card p-4">
-<h2 class="font-bold brand-text mb-3">In bảng giá quầy</h2>
+  <h2 class="font-bold brand-text mb-3">In bảng giá quầy</h2>
 
-<div class="flex gap-2 mb-2">
-<button onclick="startPrintScan()" class="brand-bg text-white px-3 py-2 rounded">📷 Quét barcode</button>
-<button onclick="exportText()" class="bg-slate-700 text-white px-3 py-2 rounded">⬇ Xuất TXT</button>
-<button onclick="clearPrintHistory()" class="bg-red-600 text-white px-3 py-2 rounded">🗑 Xóa</button>
+  <div class="flex gap-2 mb-2 flex-wrap">
+    <button onclick="startPrintScan()" class="brand-bg text-white px-3 py-2 rounded">📷 Quét barcode</button>
+    <button onclick="exportText()" class="bg-slate-700 text-white px-3 py-2 rounded">⬇ Xuất TXT</button>
+    <button onclick="clearPrintHistory()" class="bg-red-600 text-white px-3 py-2 rounded">🗑 Xóa</button>
+  </div>
+
+  <div id="printReader" class="hidden"></div>
+  <div class="chat-box" id="printHistory"></div>
 </div>
 
-<div id="printReader" class="hidden"></div>
-<div class="chat-box" id="printHistory"></div>
-</div>
+<!-- TOAST -->
+<div id="toastBox" class="toast"></div>
 
 <script>
-  function isIOS(){
-  return /iPhone|iPad|iPod/i.test(navigator.userAgent);
-}
-/* ================= CORE ================= */
-const historyKey="coop_hsd_history";
-  /* ================= AUTO CLEAN EXPIRED ================= */
-function autoCleanExpired(){
+/* ================= UTILS ================= */
+function isIOS(){ return /iPhone|iPad|iPod/i.test(navigator.userAgent); }
 
-  let data = JSON.parse(localStorage.getItem(historyKey) || "[]");
-  if(!data.length) return;
+const historyKey = "coop_hsd_history";
+const printKey   = "coop_print_history";
 
-  const today = new Date();
-  today.setHours(0,0,0,0);
+const sidebar  = document.getElementById("sidebar");
+const overlay  = document.getElementById("overlay");
+const mainApp  = document.getElementById("mainApp");
+const printApp = document.getElementById("printApp");
 
-  const filtered = data.filter(item => {
+function toggleMenu(){ sidebar.classList.toggle("active"); overlay.classList.toggle("active"); }
 
-    if(!item.HSD) return true;
-
-    const hsd = new Date(item.HSD);
-
-    if(isNaN(hsd)) return true;
-
-    hsd.setHours(0,0,0,0);
-
-    // ❌ XÓA nếu đã qua ngày hôm nay
-    if(hsd < today){
-      return false;
-    }
-
-    return true;
-  });
-
-  if(filtered.length !== data.length){
-    localStorage.setItem(historyKey, JSON.stringify(filtered));
-  }
-}
-
-const printKey="coop_print_history";
-
-const sidebar=document.getElementById("sidebar");
-const overlay=document.getElementById("overlay");
-const mainApp=document.getElementById("mainApp");
-const printApp=document.getElementById("printApp");
-
-function toggleMenu(){sidebar.classList.toggle("active");overlay.classList.toggle("active")}
 function stopAllScanner(){
-  if(qr){
-    qr.stop().then(()=>qr.clear()).catch(()=>{});
-    qr = null;
-  }
-  if(qr2){
-    qr2.stop().then(()=>qr2.clear()).catch(()=>{});
-    qr2 = null;
-  }
+  if(qr){ try{ qr.stop().then(()=>qr.clear()).catch(()=>{}); }catch(e){} qr = null; }
+  if(qr2){ try{ qr2.stop().then(()=>qr2.clear()).catch(()=>{}); }catch(e){} qr2 = null; }
   isScanning = false;
 }
-  
+
 function showMain(){
   stopAllScanner();
   mainApp.classList.remove("hidden");
   printApp.classList.add("hidden");
   toggleMenu();
 }
-
 function showPrint(){
   stopAllScanner();
   mainApp.classList.add("hidden");
@@ -377,326 +404,286 @@ function showPrint(){
 }
 
 function changeCalcMode(){
-  const m = calcMode.value;
+  const m = document.getElementById("calcMode").value;
+  document.getElementById("nsxBlock").classList.add("hidden");
+  document.getElementById("hsdBlock").classList.add("hidden");
+  document.getElementById("beforeHsdBlock").classList.add("hidden");
+  document.getElementById("nsxPeriodBlock").classList.add("hidden");
+  if(m === "full"){ document.getElementById("nsxBlock").classList.remove("hidden"); document.getElementById("hsdBlock").classList.remove("hidden"); }
+  if(m === "hsdBack"){ document.getElementById("hsdBlock").classList.remove("hidden"); document.getElementById("beforeHsdBlock").classList.remove("hidden"); }
+  if(m === "nsxPeriod"){ document.getElementById("nsxBlock").classList.remove("hidden"); document.getElementById("nsxPeriodBlock").classList.remove("hidden"); }
+}
 
-  nsxBlock.classList.add("hidden");
-  hsdBlock.classList.add("hidden");
-  beforeHsdBlock.classList.add("hidden");
-  nsxPeriodBlock.classList.add("hidden");
-
-  if(m === "full"){
-    nsxBlock.classList.remove("hidden");
-    hsdBlock.classList.remove("hidden");
-  }
-
-  if(m === "hsdBack"){
-    hsdBlock.classList.remove("hidden");
-    beforeHsdBlock.classList.remove("hidden");
-  }
-
-  if(m === "nsxPeriod"){
-    nsxBlock.classList.remove("hidden");
-    nsxPeriodBlock.classList.remove("hidden");
+/* ================= AUTO CLEAN EXPIRED ================= */
+function autoCleanExpired(){
+  let data = JSON.parse(localStorage.getItem(historyKey) || "[]");
+  if(!data.length) return;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const filtered = data.filter(item => {
+    if(!item.HSD) return true;
+    const hsd = new Date(item.HSD);
+    if(isNaN(hsd)) return true;
+    hsd.setHours(0,0,0,0);
+    return hsd >= today;
+  });
+  if(filtered.length !== data.length){
+    localStorage.setItem(historyKey, JSON.stringify(filtered));
   }
 }
 
-/* ================= SCAN CONFIG ================= */
+/* ================= SCAN ================= */
 const scanConfigAndroidWeak = { fps: 10, qrbox: 250 };
+let qr = null, qr2 = null, currentFilter = "all";
+let isScanning = false, isPopupShowing = false;
 
-let qr=null,qr2=null,currentFilter="all";
-let isScanning = false;
-let isPopupShowing = false;
-
-/* ================= SCAN MAIN ================= */
 async function startScan(){
-
-  if(isIOS()){
-    alert("⚠️ iPhone không hỗ trợ quét barcode.\nVui lòng nhập tay.");
-    return;
-  }
-
+  if(isIOS()){ alert("⚠️ iPhone không hỗ trợ quét barcode.\nVui lòng nhập tay."); return; }
   if(isScanning) return;
   isScanning = true;
-
-  // 🔴 DỪNG CAMERA CŨ (NẾU CÓ)
-  if(qr){
-    try{
-      await qr.stop();
-      await qr.clear();
-    }catch(e){}
-    qr = null;
-  }
-
+  if(qr){ try{ await qr.stop(); await qr.clear(); }catch(e){} qr = null; }
   const r = document.getElementById("reader");
-  r.innerHTML = `
-    <div class="scan-frame">
-      <div class="scan-line"></div>
-    </div>
-  `;
+  r.innerHTML = `<div class="scan-frame"><div class="scan-line"></div></div>`;
   r.classList.remove("hidden");
-
   qr = new Html5Qrcode("reader");
-
-  qr.start(
-    { facingMode: "environment" },
-    scanConfigAndroidWeak,
-    code => {
-      barcode.value = code;
-
-      qr.stop().then(()=>{
-        qr.clear();
-        qr = null;
-        r.classList.add("hidden");
-        isScanning = false;
-      });
-    },
-    () => {}
-  ).catch(()=>{
-    isScanning = false;
-    r.classList.add("hidden");
-  });
+  qr.start({ facingMode: "environment" }, scanConfigAndroidWeak, code => {
+    document.getElementById("barcode").value = code;
+    qr.stop().then(()=>{ qr.clear(); qr = null; r.classList.add("hidden"); isScanning = false; });
+  }, ()=>{}).catch(()=>{ isScanning = false; r.classList.add("hidden"); });
 }
 
-/* ================= SCAN PRINT ================= */
 async function startPrintScan(){
-
-  if(isIOS()){
-    alert("⚠️ Thiết bị iOS không hỗ trợ quét barcode.");
-    return;
-  }
-
+  if(isIOS()){ alert("⚠️ Thiết bị iOS không hỗ trợ quét barcode."); return; }
   if(isScanning) return;
   isScanning = true;
-
-  if(qr2){
-    try{
-      await qr2.stop();
-      await qr2.clear();
-    }catch(e){}
-    qr2 = null;
-  }
-
+  if(qr2){ try{ await qr2.stop(); await qr2.clear(); }catch(e){} qr2 = null; }
   const r = document.getElementById("printReader");
-  r.innerHTML = `
-    <div class="scan-frame">
-      <div class="scan-line"></div>
-    </div>
-  `;
+  r.innerHTML = `<div class="scan-frame"><div class="scan-line"></div></div>`;
   r.classList.remove("hidden");
-
   qr2 = new Html5Qrcode("printReader");
-
-  qr2.start(
-    { facingMode: "environment" },
-    scanConfigAndroidWeak,
-    code=>{
-      addBarcode(code);
-      qr2.stop().then(()=>{
-        qr2.clear();
-        qr2 = null;
-        r.classList.add("hidden");
-        isScanning = false;
-      });
-    }
-  ).catch(()=>{
-    isScanning = false;
-    r.classList.add("hidden");
-  });
+  qr2.start({ facingMode: "environment" }, scanConfigAndroidWeak, code => {
+    addBarcode(code);
+    qr2.stop().then(()=>{ qr2.clear(); qr2 = null; r.classList.add("hidden"); isScanning = false; });
+  }).catch(()=>{ isScanning = false; r.classList.add("hidden"); });
 }
 
+/* ================= CALC HELPERS ================= */
 function addPeriod(date, value, unit){
   const d = new Date(date);
-
   if(unit === "day") d.setDate(d.getDate() + value);
-
-  if(unit === "month"){
-    const day = d.getDate();
-    d.setMonth(d.getMonth() + value);
-    if(d.getDate() < day) d.setDate(0);
-  }
-
+  if(unit === "month"){ const day = d.getDate(); d.setMonth(d.getMonth() + value); if(d.getDate() < day) d.setDate(0); }
   if(unit === "year") d.setFullYear(d.getFullYear() + value);
-
   return d;
 }
 
+function diffDays(a, b){ return Math.round((b - a) / 86400000); }
+
+/* ================= CALCULATE ================= */
 function calculate(){
-let nsxD, hsdD;
-const mode = calcMode.value;
+  let nsxD, hsdD;
+  const mode = document.getElementById("calcMode").value;
 
-if(mode === "full"){
-  if(!nsx.value || !hsd.value){
-    alert("Nhập đủ NSX & HSD"); return;
+  if(mode === "full"){
+    if(!document.getElementById("nsx").value || !document.getElementById("hsd").value){ alert("Nhập đủ NSX & HSD"); return; }
+    nsxD = new Date(document.getElementById("nsx").value);
+    hsdD = new Date(document.getElementById("hsd").value);
   }
-  nsxD = new Date(nsx.value);
-  hsdD = new Date(hsd.value);
+  if(mode === "hsdBack"){
+    if(!document.getElementById("hsd").value){ alert("Nhập HSD"); return; }
+    const v = Number(document.getElementById("beforeHsdValue").value);
+    const u = document.getElementById("beforeHsdUnit").value;
+    if(!v){ alert("Nhập thời gian trước HSD"); return; }
+    hsdD = new Date(document.getElementById("hsd").value);
+    nsxD = addPeriod(hsdD, -v, u);
+  }
+  if(mode === "nsxPeriod"){
+    if(!document.getElementById("nsx").value){ alert("Nhập NSX"); return; }
+    const v = Number(document.getElementById("periodValue").value);
+    const u = document.getElementById("periodUnit").value;
+    if(!v){ alert("Nhập thời gian sử dụng"); return; }
+    nsxD = new Date(document.getElementById("nsx").value);
+    hsdD = addPeriod(nsxD, v, u);
+  }
+
+  if(hsdD <= nsxD){ alert("HSD phải lớn hơn NSX"); return; }
+
+  const total = (hsdD - nsxD) / 86400000;
+  const date30 = new Date(nsxD.getTime() + total * 0.7 * 86400000);
+  const date20 = new Date(nsxD.getTime() + total * 0.8 * 86400000);
+  const today  = new Date();
+
+  let warn30 = "", warn20 = "", b30 = "", b20 = "", f30 = "Bình thường", f20 = "Bình thường";
+
+  if(today >= date30){ warn30 = "⚠️ <b>Báo cáo Quản lý giải tồn</b>"; b30 = "blink30"; f30 = "Giải tồn"; }
+  if(today >= date20){ warn20 = "⚠️ <b>Rút hàng khỏi quầy</b>"; b20 = "blink20"; f20 = "Rút hàng"; }
+
+  document.getElementById("result").innerHTML = `
+    <div class="border p-3 mb-3 ${b30} rounded">
+      <b>MỐC 30%</b><br>📅 ${date30.toLocaleDateString("vi-VN")}
+      <div>${warn30 || "<span class='text-green-700'>Trong ngưỡng an toàn</span>"}</div>
+    </div>
+    <div class="border p-3 ${b20} rounded">
+      <b>MỐC 20%</b><br>📅 ${date20.toLocaleDateString("vi-VN")}
+      <div>${warn20 || "<span class='text-green-700'>Trong ngưỡng an toàn</span>"}</div>
+    </div>`;
+
+  saveHistory(nsxD, hsdD, date30, date20, f30, f20);
+  autoCleanExpired();
+
+  if(today >= date20) showPopup("20");
+  else if(today >= date30) showPopup("30");
 }
 
-if(mode === "hsdBack"){
-  if(!hsd.value){
-    alert("Nhập HSD"); return;
-  }
-  const v = Number(beforeHsdValue.value);
-  const u = beforeHsdUnit.value;
-  if(!v){
-    alert("Nhập thời gian trước HSD"); return;
-  }
-  hsdD = new Date(hsd.value);
-  nsxD = addPeriod(hsdD, -v, u);
-}
-
-if(mode === "nsxPeriod"){
-  if(!nsx.value){
-    alert("Nhập NSX"); return;
-  }
-  const v = Number(periodValue.value);
-  const u = periodUnit.value;
-  if(!v){
-    alert("Nhập thời gian sử dụng"); return;
-  }
-  nsxD = new Date(nsx.value);
-  hsdD = addPeriod(nsxD, v, u);
-}
-
-if(hsdD <= nsxD){
-  alert("HSD phải lớn hơn NSX"); return;
-}
-
- const total=(hsdD-nsxD)/86400000;
- const date30=new Date(nsxD.getTime()+total*0.7*86400000);
- const date20=new Date(nsxD.getTime()+total*0.8*86400000);
- const today=new Date();
-
- let warn30="",warn20="",b30="",b20="",f30="Bình thường",f20="Bình thường";
-
- if(today>=date30){warn30="⚠️ <b>Báo cáo Quản lý giải tồn</b>";b30="blink30";f30="Giải tồn"}
- if(today>=date20){warn20="⚠️ <b>Rút hàng khỏi quầy</b>";b20="blink20";f20="Rút hàng"}
-
- result.innerHTML=`
-<div class="border p-3 mb-3 ${b30}">
-<b>MỐC 30%</b><br>📅 ${date30.toLocaleDateString("vi-VN")}
-<div>${warn30||"<span class='text-green-700'>Trong ngưỡng an toàn</span>"}</div>
-</div>
-
-<div class="border p-3 ${b20}">
-<b>MỐC 20%</b><br>📅 ${date20.toLocaleDateString("vi-VN")}
-<div>${warn20||"<span class='text-green-700'>Trong ngưỡng an toàn</span>"}</div>
-</div>`;
-
-saveHistory(nsxD, hsdD, date30, date20, f30, f20);
-autoCleanExpired();
-
- if(today>=date20) showPopup("20");
- else if(today>=date30) showPopup("30");
-}
-
+/* ================= SAVE HISTORY ================= */
 function saveHistory(nsxD, hsdD, date30, date20, f30, f20){
-
-   const history = JSON.parse(localStorage.getItem(historyKey)) || [];
-
-   const record = {
-      id: Date.now() + Math.random(),
-      TenSP: productName.value.trim() || "",
-      Barcode: barcode.value.trim() || "",
-      NSX: nsxD.toISOString(),
-      HSD: hsdD.toISOString(),
-      M30: date30.toISOString(),
-      M20: date20.toISOString(),
-      CanhBao30: f30,
-      CanhBao20: f20,
-      ThoiGian: new Date().toLocaleString("vi-VN")
-   };
-
-   history.unshift(record);
-
-   localStorage.setItem(historyKey, JSON.stringify(history));
-
-   renderHistory();
+  const data = JSON.parse(localStorage.getItem(historyKey)) || [];
+  const record = {
+    id: Date.now() + Math.random(),
+    TenSP: document.getElementById("productName").value.trim() || "",
+    Barcode: document.getElementById("barcode").value.trim() || "",
+    NSX: nsxD.toISOString(),
+    HSD: hsdD.toISOString(),
+    M30: date30.toISOString(),
+    M20: date20.toISOString(),
+    CanhBao30: f30,
+    CanhBao20: f20,
+    ThoiGian: new Date().toLocaleString("vi-VN")
+  };
+  data.unshift(record);
+  localStorage.setItem(historyKey, JSON.stringify(data));
+  renderHistory();
+  renderOverview();
 }
 
-
-function setFilter(type){
- currentFilter=type;
- document.querySelectorAll(".filter-btn").forEach(b=>b.classList.remove("active"));
- document.getElementById("f-"+type).classList.add("active");
- renderHistory();
-}
-
-function renderHistory(){
-
- let data = JSON.parse(localStorage.getItem(historyKey) || "[]");
-
- // SỬA FILTER ĐÚNG FIELD
- if(currentFilter==="30")
-   data = data.filter(x => x.CanhBao30 === "Giải tồn");
-
- if(currentFilter==="20")
-   data = data.filter(x => x.CanhBao20 === "Rút hàng");
-
- if(!data.length){
-   history.innerHTML="<div class='text-gray-400 italic'>Không có dữ liệu phù hợp</div>";
-   statistic.innerHTML="📦 Tổng: 0";
-   return;
- }
-
- history.innerHTML = data.map(x=>`
-<div class="border-b pb-1">
-<div><b>Tên SP:</b> ${x.TenSP || "-"}</div>
-<div><b>Barcode:</b> ${x.Barcode || "-"}</div>
-<div>
-30%:
-<span class="${x.CanhBao30==="Giải tồn"?"text-orange-600 font-semibold":"text-green-700"}">
-${x.CanhBao30}
-</span>
-|
-20%:
-<span class="${x.CanhBao20==="Rút hàng"?"text-red-600 font-semibold":"text-green-700"}">
-${x.CanhBao20}
-</span>
-</div>
-<div class="text-xs text-gray-500">⏱ ${x.ThoiGian}</div>
-</div>
-`).join("");
-
- statistic.innerHTML=`📦 Tổng: <b>${data.length}</b>`;
-}
-
-
-function clearHistory(){
-
+/* ================= OVERVIEW ================= */
+function renderOverview(){
   const data = JSON.parse(localStorage.getItem(historyKey) || "[]");
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  let total = data.length, safe = 0, g30 = 0, g20 = 0, expired = 0;
+
+  data.forEach(x => {
+    const hsd = new Date(x.HSD); hsd.setHours(0,0,0,0);
+    if(hsd < today){ expired++; return; }
+    if(x.CanhBao20 === "Rút hàng"){ g20++; }
+    else if(x.CanhBao30 === "Giải tồn"){ g30++; }
+    else { safe++; }
+  });
+
+  document.getElementById("ov-total").textContent = total;
+  document.getElementById("ov-safe").textContent  = safe;
+  document.getElementById("ov-30").textContent    = g30;
+  document.getElementById("ov-20").textContent    = g20;
+  document.getElementById("ov-exp").textContent   = expired;
+}
+
+/* ================= FILTER ================= */
+function setFilter(type){
+  currentFilter = type;
+  document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+  document.getElementById("f-" + type).classList.add("active");
+  renderHistory();
+}
+
+/* ================= RENDER HISTORY ================= */
+function renderHistory(){
+  let data = JSON.parse(localStorage.getItem(historyKey) || "[]");
+
+  if(currentFilter === "30") data = data.filter(x => x.CanhBao30 === "Giải tồn");
+  if(currentFilter === "20") data = data.filter(x => x.CanhBao20 === "Rút hàng");
+
+  const container = document.getElementById("historyList");
 
   if(!data.length){
-    alert("Không có dữ liệu để xóa");
+    container.innerHTML = "<div class='text-gray-400 italic p-2'>Không có dữ liệu phù hợp</div>";
+    document.getElementById("statistic").innerHTML = "📦 Tổng: 0";
     return;
   }
 
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  container.innerHTML = data.map(x => {
+    const m30   = new Date(x.M30); m30.setHours(0,0,0,0);
+    const m20   = new Date(x.M20); m20.setHours(0,0,0,0);
+    const hsd   = new Date(x.HSD); hsd.setHours(0,0,0,0);
+
+    const days30 = diffDays(today, m30);  // negative = đã qua
+    const days20 = diffDays(today, m20);
+    const daysHsd = diffDays(today, hsd);
+
+    // --- Tag mốc 30% ---
+    let tag30 = "";
+    if(days30 < 0){
+      tag30 = `<span class="tag tag-dark">⚠️ Đã qua ${Math.abs(days30)} ngày — Giải tồn</span>`;
+    } else if(days30 === 0){
+      tag30 = `<span class="tag tag-orange">⚠️ Hôm nay đến mốc 30%</span>`;
+    } else {
+      tag30 = `<span class="tag tag-green">✅ Còn ${days30} ngày → 30%</span>`;
+    }
+
+    // --- Tag mốc 20% ---
+    let tag20 = "";
+    if(days20 < 0){
+      tag20 = `<span class="tag tag-red">🔴 Đã qua ${Math.abs(days20)} ngày — Rút hàng</span>`;
+    } else {
+      tag20 = `<span class="tag tag-yellow">⏳ Còn ${days20} ngày → 20%</span>`;
+    }
+
+    // --- Tag HSD ---
+    let tagHsd = "";
+    if(daysHsd < 0){
+      tagHsd = `<span class="tag tag-red">❌ Hết hạn ${Math.abs(daysHsd)} ngày trước</span>`;
+    } else if(daysHsd === 0){
+      tagHsd = `<span class="tag tag-red">❌ Hết hạn hôm nay</span>`;
+    } else {
+      tagHsd = `<span class="tag tag-blue">HSD còn ${daysHsd} ngày</span>`;
+    }
+
+    const name    = x.TenSP    || "(chưa đặt tên)";
+    const barcode = x.Barcode  || "-";
+
+    return `
+    <div class="hist-card">
+      <div class="hist-name">${name}</div>
+      <div class="hist-meta">Barcode: ${barcode} &nbsp;|&nbsp; 🕐 ${x.ThoiGian}</div>
+      <div class="tags">
+        ${tag30}
+        ${tag20}
+        ${tagHsd}
+      </div>
+      <div class="hist-milestones">
+        Mốc 30%: ${m30.toLocaleDateString("vi-VN")} &nbsp;|&nbsp;
+        Mốc 20%: ${m20.toLocaleDateString("vi-VN")} &nbsp;|&nbsp;
+        HSD: ${hsd.toLocaleDateString("vi-VN")}
+      </div>
+    </div>`;
+  }).join("");
+
+  document.getElementById("statistic").innerHTML = `📦 Tổng: <b>${data.length}</b>`;
+}
+
+/* ================= CLEAR / DELETE ================= */
+function clearHistory(){
+  const data = JSON.parse(localStorage.getItem(historyKey) || "[]");
+  if(!data.length){ alert("Không có dữ liệu để xóa"); return; }
   document.getElementById("confirmBox").classList.remove("hidden");
   document.getElementById("confirmBox").classList.add("flex");
 }
 function confirmDeleteHistory(){
-
   localStorage.removeItem(historyKey);
   renderHistory();
+  renderOverview();
   closeConfirmPopup();
 }
-
 function closeConfirmPopup(){
   const box = document.getElementById("confirmBox");
   box.classList.add("hidden");
   box.classList.remove("flex");
 }
 
+/* ================= EXPORT EXCEL ================= */
 function exportExcel(){
-
   const h = JSON.parse(localStorage.getItem(historyKey) || "[]");
-
-  if(!h.length){
-    alert("Không có dữ liệu");
-    return;
-  }
-
-  // Chuẩn hóa dữ liệu khi xuất (định dạng ngày dễ đọc)
+  if(!h.length){ alert("Không có dữ liệu"); return; }
   const exportData = h.map(x => ({
     "Tên SP": x.TenSP || "",
     "Barcode": x.Barcode || "",
@@ -709,297 +696,160 @@ function exportExcel(){
     "Thời gian tính": x.ThoiGian,
     "Đã kiểm date": x.completed ? "Đã xử lý" : "Chưa xử lý"
   }));
-
   const ws = XLSX.utils.json_to_sheet(exportData);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "HSD");
-
   XLSX.writeFile(wb, "saigoncoop_hsd.xlsx");
-
-  // ❌ KHÔNG xóa localStorage nữa
-  // localStorage.removeItem(historyKey);
-
   showPopup("export");
 }
 
-
-autoCleanExpired();   // THÊM DÒNG NÀY
-
-renderHistory();
-renderPrint();
-checkStoredProducts();
-
-function addBarcode(code){
- let d=JSON.parse(localStorage.getItem(printKey)||"{}");
- d[code]=(d[code]||0)+1;
- localStorage.setItem(printKey,JSON.stringify(d));
- renderPrint();
-}
-
-function renderPrint(){
- const d=JSON.parse(localStorage.getItem(printKey)||"{}");
- printHistory.innerHTML=Object.entries(d).map(([b,q])=>`<div class="chat-item">${b},${q}</div>`).join("");
-}
-
-function clearPrintHistory(){localStorage.removeItem(printKey);renderPrint()}
-
-function exportText(){
- const d=JSON.parse(localStorage.getItem(printKey)||"{}");
- if(!Object.keys(d).length){alert("Không có dữ liệu");return}
-
- const txt=Object.entries(d).map(([b,q])=>`${b},${q}`).join("\n");
- const blob=new Blob([txt],{type:"text/plain;charset=utf-8"});
- const url=URL.createObjectURL(blob);
- const a=document.createElement("a");
- a.href=url;a.download="barcode_print.txt";
- document.body.appendChild(a);a.click();document.body.removeChild(a);
- URL.revokeObjectURL(url);
-  
- localStorage.removeItem(printKey);
- renderPrint();
- showPopup("export");
-}
-
+/* ================= POPUP ================= */
 function showPopup(type){
-
- if(isPopupShowing) return; // chặn mở chồng
- isPopupShowing = true;
-
- const popup = document.getElementById("alertPopup");
- const box = document.getElementById("popupBox");
- const title = document.getElementById("popupTitle");
- const msg = document.getElementById("popupMsg");
-
- // reset class trước khi thêm hiệu ứng mới
- box.className = "bg-white p-5 rounded-xl w-[90%] max-w-sm text-center";
-
- // Ưu tiên 20% trước
- if(type === "20"){
-  title.innerText = "CẢNH BÁO MỐC 20%";
-  msg.innerText = "Rút hàng khỏi quầy ngay.";
-  box.classList.add("popup-pulse-20");
- }
-
- else if(type === "30"){
-  title.innerText = "CẢNH BÁO MỐC 30%";
-  msg.innerText = "Báo cáo quản lý để thực hiện giải tồn.";
-  box.classList.add("popup-pulse-30");
- }
-
- else if(type === "export"){
-  title.innerText = "XUẤT FILE THÀNH CÔNG";
-  msg.innerText = "Dữ liệu đã được tải về và hệ thống đã sẵn sàng cho lần tiếp theo.";
- }
-
- popup.classList.remove("hidden");
- popup.classList.add("flex");
-
- if(type === "export"){
-   setTimeout(closePopup, 2500);
- }
+  if(isPopupShowing) return;
+  isPopupShowing = true;
+  const popup = document.getElementById("alertPopup");
+  const box   = document.getElementById("popupBox");
+  const title = document.getElementById("popupTitle");
+  const msg   = document.getElementById("popupMsg");
+  box.className = "bg-white p-5 rounded-xl w-[90%] max-w-sm text-center";
+  if(type === "20"){ title.innerText = "CẢNH BÁO MỐC 20%"; msg.innerText = "Rút hàng khỏi quầy ngay."; box.classList.add("popup-pulse-20"); }
+  else if(type === "30"){ title.innerText = "CẢNH BÁO MỐC 30%"; msg.innerText = "Báo cáo quản lý để thực hiện giải tồn."; box.classList.add("popup-pulse-30"); }
+  else if(type === "export"){ title.innerText = "XUẤT FILE THÀNH CÔNG"; msg.innerText = "Dữ liệu đã được tải về."; }
+  popup.classList.remove("hidden");
+  popup.classList.add("flex");
+  if(type === "export") setTimeout(closePopup, 2500);
 }
-
-
 function closePopup(){
- const popup = document.getElementById("alertPopup");
- popup.classList.add("hidden");
- popup.classList.remove("flex");
- isPopupShowing = false;
+  document.getElementById("alertPopup").classList.add("hidden");
+  document.getElementById("alertPopup").classList.remove("flex");
+  isPopupShowing = false;
 }
 
-  
+/* ================= RESET FORM ================= */
 function resetForm(){
-  productName.value="";
-  barcode.value="";
-  nsx.value="";
-  hsd.value="";
-  beforeHsdValue.value="";
-  periodValue.value="";
-  result.innerHTML="";
+  ["productName","barcode","nsx","hsd","beforeHsdValue","periodValue"].forEach(id => {
+    document.getElementById(id).value = "";
+  });
+  document.getElementById("result").innerHTML = "";
 }
+
+/* ================= CHECK DATE POPUP ================= */
 function checkStoredProducts(){
-if(isPopupShowing) return;
- let data = JSON.parse(localStorage.getItem(historyKey) || "[]");
-
- if(!Array.isArray(data) || !data.length){
-   closeCheckDatePopup();
-   return;
- }
-
- const today = new Date();
- today.setHours(0,0,0,0);
-
- function parseVNDate(dateStr){
-   if(!dateStr) return null;
-   if(dateStr.includes("-")) return new Date(dateStr);
-   const [d,m,y] = dateStr.split("/");
-   return new Date(`${y}-${m}-${d}`);
- }
-
- let warningProducts = [];
-
- data.forEach(item => {
-
-   if(item.completed === true) return;
-
-   const m30 = new Date(item.M30);
-   if(!m30 || isNaN(m30)) return;
-
-   m30.setHours(0,0,0,0);
-
-   const before15 = new Date(m30);
-   before15.setDate(before15.getDate() - 15);
-
-   const after10 = new Date(m30);
-   after10.setDate(after10.getDate() + 10);
-
-   if(today >= before15 && today <= after10){
-     warningProducts.push(item);
-   }
-
- });
-
- if(warningProducts.length){
-   showCheckDatePopup(warningProducts);
- } else {
-   closeCheckDatePopup();
- }
+  if(isPopupShowing) return;
+  let data = JSON.parse(localStorage.getItem(historyKey) || "[]");
+  if(!Array.isArray(data) || !data.length){ closeCheckDatePopup(); return; }
+  const today = new Date(); today.setHours(0,0,0,0);
+  let warningProducts = [];
+  data.forEach(item => {
+    if(item.completed === true) return;
+    const m30 = new Date(item.M30);
+    if(!m30 || isNaN(m30)) return;
+    m30.setHours(0,0,0,0);
+    const before15 = new Date(m30); before15.setDate(before15.getDate() - 15);
+    const after10  = new Date(m30); after10.setDate(after10.getDate() + 10);
+    if(today >= before15 && today <= after10) warningProducts.push(item);
+  });
+  if(warningProducts.length) showCheckDatePopup(warningProducts);
+  else closeCheckDatePopup();
 }
-
 
 function showCheckDatePopup(list){
-
- isPopupShowing = true;
- const box = document.getElementById("checkDateBox");
- const container = document.getElementById("checkDateList");
-const inner = document.getElementById("checkDateInner");
-inner.classList.remove("checkdate-pulse");
-
- if(!list || !list.length){
-   closeCheckDatePopup();
-   return;
- }
-
- container.innerHTML = list.map(item => {
-
-   const m30 = new Date(item.M30).toLocaleDateString("vi-VN");
-   const hsd = new Date(item.HSD).toLocaleDateString("vi-VN");
-
-   return `
-   <div class="border p-2 rounded">
-     <div><b>${item.TenSP || "-"}</b></div>
-     <div>Ngưỡng 30%: ${m30}</div>
-     <div>HSD: ${hsd}</div>
-     <button onclick="completeProduct(${item.id})"
-       class="mt-2 bg-red-600 text-white px-3 py-1 rounded text-sm">
-       HOÀN THÀNH
-     </button>
-   </div>`;
- }).join("");
-  
-inner.classList.add("checkdate-pulse");
-
- box.classList.remove("hidden");
- box.classList.add("flex");
+  isPopupShowing = true;
+  const box   = document.getElementById("checkDateBox");
+  const inner = document.getElementById("checkDateInner");
+  const container = document.getElementById("checkDateList");
+  inner.classList.remove("checkdate-pulse");
+  if(!list || !list.length){ closeCheckDatePopup(); return; }
+  container.innerHTML = list.map(item => {
+    const m30 = new Date(item.M30).toLocaleDateString("vi-VN");
+    const hsd = new Date(item.HSD).toLocaleDateString("vi-VN");
+    return `
+    <div class="border p-2 rounded">
+      <div><b>${item.TenSP || "-"}</b></div>
+      <div>Ngưỡng 30%: ${m30}</div>
+      <div>HSD: ${hsd}</div>
+      <button onclick="completeProduct(${item.id})" class="mt-2 bg-red-600 text-white px-3 py-1 rounded text-sm">HOÀN THÀNH</button>
+    </div>`;
+  }).join("");
+  inner.classList.add("checkdate-pulse");
+  box.classList.remove("hidden");
+  box.classList.add("flex");
 }
 
-
-
 function completeProduct(id){
-
   let data = JSON.parse(localStorage.getItem(historyKey) || "[]");
-
-  // Đánh dấu hoàn thành
-  data = data.map(item => {
-    if(item.id === id){
-      return { ...item, completed: true };
-    }
-    return item;
-  });
-
+  data = data.map(item => item.id === id ? {...item, completed: true} : item);
   localStorage.setItem(historyKey, JSON.stringify(data));
-
-  // Lọc lại danh sách cảnh báo từ dữ liệu mới
-  const today = new Date();
-  today.setHours(0,0,0,0);
-
+  const today = new Date(); today.setHours(0,0,0,0);
   const warningProducts = data.filter(item => {
-
     if(item.completed) return false;
-
     const m30 = new Date(item.M30);
     if(isNaN(m30)) return false;
-
     m30.setHours(0,0,0,0);
-
-    const before15 = new Date(m30);
-    before15.setDate(before15.getDate() - 15);
-
-    const after10 = new Date(m30);
-    after10.setDate(after10.getDate() + 10);
-
+    const before15 = new Date(m30); before15.setDate(before15.getDate() - 15);
+    const after10  = new Date(m30); after10.setDate(after10.getDate() + 10);
     return today >= before15 && today <= after10;
   });
-
-  // Render lại popup đúng dữ liệu mới
-  if(warningProducts.length > 0){
-    showCheckDatePopup(warningProducts);
-  } else {
-    closeCheckDatePopup();
-  }
-
- autoCleanExpired();
-renderHistory();
-showToast("Đã xử lý sản phẩm");
+  if(warningProducts.length > 0) showCheckDatePopup(warningProducts);
+  else closeCheckDatePopup();
+  autoCleanExpired();
+  renderHistory();
+  renderOverview();
+  showToast("Đã xử lý sản phẩm");
 }
 
 function closeCheckDatePopup(){
-  const box = document.getElementById("checkDateBox");
+  const box   = document.getElementById("checkDateBox");
   const inner = document.getElementById("checkDateInner");
-
   inner.classList.remove("checkdate-pulse");
-
   box.classList.add("hidden");
   box.classList.remove("flex");
   isPopupShowing = false;
 }
-function showToast(message = "Đã xử lý"){
 
+/* ================= PRINT MODULE ================= */
+function addBarcode(code){
+  let d = JSON.parse(localStorage.getItem(printKey) || "{}");
+  d[code] = (d[code] || 0) + 1;
+  localStorage.setItem(printKey, JSON.stringify(d));
+  renderPrint();
+}
+function renderPrint(){
+  const d = JSON.parse(localStorage.getItem(printKey) || "{}");
+  document.getElementById("printHistory").innerHTML = Object.entries(d).map(([b,q]) =>
+    `<div class="chat-item">${b},${q}</div>`
+  ).join("");
+}
+function clearPrintHistory(){ localStorage.removeItem(printKey); renderPrint(); }
+function exportText(){
+  const d = JSON.parse(localStorage.getItem(printKey) || "{}");
+  if(!Object.keys(d).length){ alert("Không có dữ liệu"); return; }
+  const txt  = Object.entries(d).map(([b,q]) => `${b},${q}`).join("\n");
+  const blob = new Blob([txt], {type:"text/plain;charset=utf-8"});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href = url; a.download = "barcode_print.txt";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  localStorage.removeItem(printKey);
+  renderPrint();
+  showPopup("export");
+}
+
+/* ================= TOAST ================= */
+function showToast(message = "Đã xử lý"){
   const toast = document.getElementById("toastBox");
   toast.innerText = message;
-
   toast.classList.add("show");
-
-  setTimeout(() => {
-    toast.classList.remove("show");
-  }, 2500);
+  setTimeout(() => toast.classList.remove("show"), 2500);
 }
+
+/* ================= INIT ================= */
+autoCleanExpired();
+renderHistory();
+renderOverview();
+renderPrint();
+checkStoredProducts();
 </script>
-<div id="confirmBox"
-     class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-50 z-[2200]">
-
-  <div class="bg-white p-5 rounded-xl w-[90%] max-w-sm text-center">
-    <div class="font-bold text-lg mb-3 text-red-600">
-      XÁC NHẬN XÓA LỊCH SỬ
-    </div>
-
-    <div class="mb-4 text-sm">
-      Thao tác này sẽ xóa toàn bộ dữ liệu và không thể khôi phục.
-    </div>
-
-    <div class="flex justify-center gap-3">
-      <button onclick="confirmDeleteHistory()"
-        class="bg-red-600 text-white px-4 py-2 rounded">
-        XÓA
-      </button>
-
-      <button onclick="closeConfirmPopup()"
-        class="bg-gray-500 text-white px-4 py-2 rounded">
-        HỦY
-      </button>
-    </div>
-  </div>
-</div>
-<div id="toastBox" class="toast"></div>
 </body>
 </html>

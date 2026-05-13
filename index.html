@@ -713,6 +713,70 @@ function setFilter(type){
   renderHistory();
 }
 
+/* ================= RENDER PRODUCT CARD (dùng chung) ================= */
+/* showComplete: hiện nút HOÀN THÀNH (dùng trong popup), mặc định false (lịch sử) */
+function renderProductCard(x, showComplete = false){
+  const today  = new Date(); today.setHours(0,0,0,0);
+  const m30    = new Date(x.M30); m30.setHours(0,0,0,0);
+  const m20    = new Date(x.M20); m20.setHours(0,0,0,0);
+  const hsd    = new Date(x.HSD); hsd.setHours(0,0,0,0);
+
+  const days30  = diffDays(today, m30);
+  const days20  = diffDays(today, m20);
+  const daysHsd = diffDays(today, hsd);
+
+  let tag30 = "";
+  if(days30 < 0){
+    tag30 = `<span class="tag tag-dark">⚠️ Đã qua ${Math.abs(days30)} ngày — Giải tồn</span>`;
+  } else if(days30 === 0){
+    tag30 = `<span class="tag tag-orange">⚠️ Hôm nay đến mốc 30%</span>`;
+  } else {
+    tag30 = `<span class="tag tag-green">✅ Còn ${days30} ngày → 30%</span>`;
+  }
+
+  let tag20 = "";
+  if(days20 < 0){
+    tag20 = `<span class="tag tag-red">🔴 Đã qua ${Math.abs(days20)} ngày — Rút hàng</span>`;
+  } else {
+    tag20 = `<span class="tag tag-yellow">⏳ Còn ${days20} ngày → 20%</span>`;
+  }
+
+  let tagHsd = "";
+  if(daysHsd < 0){
+    tagHsd = `<span class="tag tag-red">❌ Hết hạn ${Math.abs(daysHsd)} ngày trước</span>`;
+  } else if(daysHsd === 0){
+    tagHsd = `<span class="tag tag-red">❌ Hết hạn hôm nay</span>`;
+  } else {
+    tagHsd = `<span class="tag tag-blue">HSD còn ${daysHsd} ngày</span>`;
+  }
+
+  const name    = x.TenSP   || "(chưa đặt tên)";
+  const barcode = x.Barcode || "-";
+  const completeBtn = showComplete
+    ? `<button onclick="completeProduct(${x.id})"
+         class="mt-2 brand-bg text-white px-3 py-1 rounded text-sm font-semibold">
+         ✅ HOÀN THÀNH
+       </button>`
+    : "";
+
+  return `
+  <div class="hist-card">
+    <div class="hist-name">${name}</div>
+    <div class="hist-meta">Barcode: ${barcode} &nbsp;|&nbsp; 🕐 ${x.ThoiGian || "-"}</div>
+    <div class="tags">
+      ${tag30}
+      ${tag20}
+      ${tagHsd}
+    </div>
+    <div class="hist-milestones">
+      Mốc 30%: ${m30.toLocaleDateString("vi-VN")} &nbsp;|&nbsp;
+      Mốc 20%: ${m20.toLocaleDateString("vi-VN")} &nbsp;|&nbsp;
+      HSD: ${hsd.toLocaleDateString("vi-VN")}
+    </div>
+    ${completeBtn}
+  </div>`;
+}
+
 /* ================= RENDER HISTORY ================= */
 function renderHistory(){
   let data = JSON.parse(localStorage.getItem(historyKey) || "[]");
@@ -730,59 +794,7 @@ function renderHistory(){
 
   const today = new Date(); today.setHours(0,0,0,0);
 
-  container.innerHTML = data.map(x => {
-    const m30   = new Date(x.M30); m30.setHours(0,0,0,0);
-    const m20   = new Date(x.M20); m20.setHours(0,0,0,0);
-    const hsd   = new Date(x.HSD); hsd.setHours(0,0,0,0);
-
-    const days30 = diffDays(today, m30);
-    const days20 = diffDays(today, m20);
-    const daysHsd = diffDays(today, hsd);
-
-    let tag30 = "";
-    if(days30 < 0){
-      tag30 = `<span class="tag tag-dark">⚠️ Đã qua ${Math.abs(days30)} ngày — Giải tồn</span>`;
-    } else if(days30 === 0){
-      tag30 = `<span class="tag tag-orange">⚠️ Hôm nay đến mốc 30%</span>`;
-    } else {
-      tag30 = `<span class="tag tag-green">✅ Còn ${days30} ngày → 30%</span>`;
-    }
-
-    let tag20 = "";
-    if(days20 < 0){
-      tag20 = `<span class="tag tag-red">🔴 Đã qua ${Math.abs(days20)} ngày — Rút hàng</span>`;
-    } else {
-      tag20 = `<span class="tag tag-yellow">⏳ Còn ${days20} ngày → 20%</span>`;
-    }
-
-    let tagHsd = "";
-    if(daysHsd < 0){
-      tagHsd = `<span class="tag tag-red">❌ Hết hạn ${Math.abs(daysHsd)} ngày trước</span>`;
-    } else if(daysHsd === 0){
-      tagHsd = `<span class="tag tag-red">❌ Hết hạn hôm nay</span>`;
-    } else {
-      tagHsd = `<span class="tag tag-blue">HSD còn ${daysHsd} ngày</span>`;
-    }
-
-    const name    = x.TenSP    || "(chưa đặt tên)";
-    const barcode = x.Barcode  || "-";
-
-    return `
-    <div class="hist-card">
-      <div class="hist-name">${name}</div>
-      <div class="hist-meta">Barcode: ${barcode} &nbsp;|&nbsp; 🕐 ${x.ThoiGian}</div>
-      <div class="tags">
-        ${tag30}
-        ${tag20}
-        ${tagHsd}
-      </div>
-      <div class="hist-milestones">
-        Mốc 30%: ${m30.toLocaleDateString("vi-VN")} &nbsp;|&nbsp;
-        Mốc 20%: ${m20.toLocaleDateString("vi-VN")} &nbsp;|&nbsp;
-        HSD: ${hsd.toLocaleDateString("vi-VN")}
-      </div>
-    </div>`;
-  }).join("");
+  container.innerHTML = data.map(x => renderProductCard(x, false)).join("");
 
   document.getElementById("statistic").innerHTML = `📦 Tổng: <b>${data.length}</b>`;
 }
@@ -889,23 +901,13 @@ function checkStoredProducts(){
 }
 
 function showCheckDatePopup(list){
-  isCheckDatePopupShowing = true; /* [F1] dùng biến riêng */
-  const box   = document.getElementById("checkDateBox");
-  const inner = document.getElementById("checkDateInner");
+  isCheckDatePopupShowing = true;
+  const box       = document.getElementById("checkDateBox");
+  const inner     = document.getElementById("checkDateInner");
   const container = document.getElementById("checkDateList");
   inner.classList.remove("checkdate-pulse");
   if(!list || !list.length){ closeCheckDatePopup(); return; }
-  container.innerHTML = list.map(item => {
-    const m30 = new Date(item.M30).toLocaleDateString("vi-VN");
-    const hsd = new Date(item.HSD).toLocaleDateString("vi-VN");
-    return `
-    <div class="border p-2 rounded">
-      <div><b>${item.TenSP || "-"}</b></div>
-      <div>Ngưỡng 30%: ${m30}</div>
-      <div>HSD: ${hsd}</div>
-      <button onclick="completeProduct(${item.id})" class="mt-2 bg-red-600 text-white px-3 py-1 rounded text-sm">HOÀN THÀNH</button>
-    </div>`;
-  }).join("");
+  container.innerHTML = list.map(item => renderProductCard(item, true)).join("");
   inner.classList.add("checkdate-pulse");
   box.classList.remove("hidden");
   box.classList.add("flex");

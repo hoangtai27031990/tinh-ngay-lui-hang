@@ -985,13 +985,29 @@ async function initServiceWorker(){
   try{
     swReg = await navigator.serviceWorker.register("sw.js", { scope: "./" });
 
+    /* ── Lắng nghe message từ SW ── */
     navigator.serviceWorker.addEventListener("message", e => {
       if(e.data && e.data.type === "REQUEST_PRODUCTS"){
         const products = JSON.parse(localStorage.getItem(historyKey) || "[]");
-        e.source.postMessage({ type: "PRODUCTS_DATA", products });
+        /* Gửi ngược về SW worker đang active */
+        const sw = swReg.active || swReg.waiting;
+        if(sw) sw.postMessage({ type: "PRODUCTS_DATA", products });
       }
     });
 
+    /* ── Đăng ký Periodic Background Sync (Chrome Android) ── */
+    if("periodicSync" in swReg){
+      try{
+        const status = await navigator.permissions.query({ name: "periodic-background-sync" });
+        if(status.state === "granted"){
+          await swReg.periodicSync.register("hsd-daily-check", {
+            minInterval: 12 * 60 * 60 * 1000   // tối thiểu 12h / lần
+          });
+        }
+      } catch(err){ /* periodicSync không khả dụng → dùng fallback */ }
+    }
+
+    /* ── Gửi SCHEDULE_DAILY để kích bonus timer ── */
     const sw = swReg.active || swReg.waiting || swReg.installing;
     if(sw) sw.postMessage({ type: "SCHEDULE_DAILY" });
 
@@ -1000,21 +1016,39 @@ async function initServiceWorker(){
       newSW.addEventListener("statechange", () => {
         if(newSW.state === "activated"){
           newSW.postMessage({ type: "SCHEDULE_DAILY" });
+          sendAppOpened();
         }
       });
     });
+
+    /* ── Gửi APP_OPENED ngay lần đầu ── */
+    sendAppOpened();
 
   } catch(err){
     console.warn("SW register failed:", err);
   }
 
+  updateBellIcon();
   checkShowNotifPopup();
 }
 
+/* Gửi data lên SW để kiểm tra "có cần notify không" (iOS fallback) */
+function sendAppOpened(){
+  const sw = swReg && (swReg.active || swReg.waiting);
+  if(!sw) return;
+  const products = JSON.parse(localStorage.getItem(historyKey) || "[]");
+  sw.postMessage({ type: "APP_OPENED", products });
+}
+
+/* Gửi APP_OPENED khi tab được focus lại (người dùng quay lại app) */
+document.addEventListener("visibilitychange", () => {
+  if(document.visibilityState === "visible") sendAppOpened();
+});
+
+/* ── Popup xin quyền thông báo ── */
 function closeNotifPopup(){
   const p = document.getElementById("notifPopup");
-  p.classList.add("hidden");
-  p.classList.remove("flex");
+  p.classList.add("hidden"); p.classList.remove("flex");
 }
 
 function checkShowNotifPopup(){
@@ -1025,10 +1059,8 @@ function checkShowNotifPopup(){
     localStorage.getItem("notif_enabled") ||
     localStorage.getItem("notif_dismissed")
   ) return;
-  // Hiện popup
   const p = document.getElementById("notifPopup");
-  p.classList.remove("hidden");
-  p.classList.add("flex");
+  p.classList.remove("hidden"); p.classList.add("flex");
 }
 
 async function notifAllow(){
@@ -1037,16 +1069,20 @@ async function notifAllow(){
   if(!("Notification" in window)){ showToast("⚠️ Trình duyệt không hỗ trợ thông báo"); return; }
   const result = await Notification.requestPermission();
   if(result === "granted"){
-    if(swReg){
-      const sw = swReg.active || swReg.waiting;
-      if(sw) sw.postMessage({ type: "SCHEDULE_DAILY" });
+    /* Kích lại periodicSync sau khi được cấp quyền */
+    if(swReg && "periodicSync" in swReg){
+      try{ await swReg.periodicSync.register("hsd-daily-check", { minInterval: 12*60*60*1000 }); }catch(e){}
     }
-    showToast("✅ Đã bật thông báo — nhắc lúc 08:00 & 14:00 mỗi ngày"); updateBellIcon();
+    const sw = swReg && (swReg.active || swReg.waiting);
+    if(sw) sw.postMessage({ type: "SCHEDULE_DAILY" });
+    sendAppOpened();
+    showToast("✅ Đã bật thông báo — nhắc lúc 08:00 & 14:00 mỗi ngày");
   } else {
     localStorage.removeItem("notif_enabled");
     localStorage.setItem("notif_dismissed", "1");
-    showToast("⚠️ Quyền thông báo bị từ chối"); updateBellIcon();
+    showToast("⚠️ Quyền thông báo bị từ chối");
   }
+  updateBellIcon();
 }
 
 function notifDeny(){
@@ -1063,17 +1099,14 @@ function resetNotifAndAsk(){
 
 /* Test thông báo ngay lập tức */
 function testNotification(){
-  if(Notification.permission !== "granted"){
-    alert("Chưa cấp quyền thông báo.");
-    return;
-  }
-  if(swReg && swReg.active){
+  if(Notification.permission !== "granted"){ alert("Chưa cấp quyền thông báo."); return; }
+  const sw = swReg && swReg.active;
+  if(sw){
     const products = JSON.parse(localStorage.getItem(historyKey) || "[]");
-    swReg.active.postMessage({ type: "CHECK_NOW", products });
+    sw.postMessage({ type: "CHECK_NOW", products });
     showToast("📨 Đã gửi yêu cầu thông báo thử nghiệm");
   }
 }
-
 
 function updateBellIcon(){
   const btn = document.getElementById("bellBtn");
@@ -1087,6 +1120,7 @@ function updateBellIcon(){
     btn.textContent = "🔕"; btn.title = "Nhấn để bật thông báo";
   }
 }
+
 /* ================= INIT ================= */
 checkShowNotifPopup();
 autoCleanExpired();

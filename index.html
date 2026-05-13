@@ -261,7 +261,7 @@ body{background:#f3f4f6}
 <div class="flex justify-between items-center mb-4 p-3 rounded-lg brand-bg text-white">
   <div class="font-bold text-lg">HỆ THỐNG QUẢN LÝ HSD</div>
   <div class="flex items-center gap-3">
-    <button onclick="resetNotifAndAsk()" id="bellBtn" title="Thông báo" class="text-xl opacity-80 hover:opacity-100 transition-opacity">🔔</button>
+    <button onclick="bellClick()" id="bellBtn" title="Thông báo" class="text-xl opacity-80 hover:opacity-100 transition-opacity">🔔</button>
     <button onclick="toggleMenu()" class="text-2xl">☰</button>
   </div>
 </div>
@@ -942,6 +942,24 @@ function closeCheckDatePopup(){
   isCheckDatePopupShowing = false; /* [F1] dùng biến riêng */
 }
 
+/* Hiển thị popup từ thông báo — tiêu đề và màu theo loại cảnh báo */
+function showCheckDatePopupFromNotif(list, tag) {
+  const titleEl = document.querySelector("#checkDateBox .font-bold.text-red-600");
+  if (titleEl) {
+    if (tag === "exp") {
+      titleEl.textContent   = "❌ SẢN PHẨM HẾT HẠN";
+      titleEl.style.color   = "#991b1b";
+    } else if (tag === "20") {
+      titleEl.textContent   = "🔴 RÚT HÀNG NGAY";
+      titleEl.style.color   = "#b91c1c";
+    } else {
+      titleEl.textContent   = "⚠️ SẢN PHẨM CẦN GIẢI TỒN";
+      titleEl.style.color   = "#c2410c";
+    }
+  }
+  showCheckDatePopup(list);
+}
+
 /* ================= PRINT MODULE ================= */
 function addBarcode(code){
   let d = JSON.parse(localStorage.getItem(printKey) || "{}");
@@ -998,6 +1016,20 @@ async function initServiceWorker() {
           products: products,
           source  : e.data.source || "app"
         });
+      }
+
+      /* Nhấn vào thông báo → hiển thị đúng danh sách sản phẩm */
+      if (e.data && e.data.type === "SHOW_NOTIF_PRODUCTS") {
+        const { tag, items } = e.data;
+        if (!Array.isArray(items) || !items.length) return;
+        /* Lấy lại object đầy đủ từ localStorage theo id để có dữ liệu mới nhất */
+        const stored = JSON.parse(localStorage.getItem(historyKey) || "[]");
+        const idSet  = new Set(items.map(i => i.id));
+        const fresh  = stored.filter(p => idSet.has(p.id) && !p.completed);
+        if (fresh.length) {
+          isCheckDatePopupShowing = false; /* reset để showCheckDatePopup không bị chặn */
+          showCheckDatePopupFromNotif(fresh, tag);
+        }
       }
     });
 
@@ -1125,6 +1157,23 @@ function updateBellIcon() {
     btn.textContent = "🔔"; btn.title = "Thông báo đã bật";
   } else {
     btn.textContent = "🔕"; btn.title = "Nhấn để bật thông báo";
+  }
+}
+
+function bellClick() {
+  if (!("Notification" in window)) {
+    showToast("⚠️ Trình duyệt không hỗ trợ thông báo");
+    return;
+  }
+  if (Notification.permission === "granted") {
+    /* Đã cấp quyền → chỉ thông báo trạng thái, không reset */
+    showToast("🔔 Thông báo đang bật — nhắc lúc 08:00 & 14:00 mỗi ngày");
+  } else if (Notification.permission === "denied") {
+    /* Đã từ chối trong trình duyệt → hướng dẫn mở lại thủ công */
+    showToast("🔕 Vui lòng bật lại thông báo trong cài đặt trình duyệt");
+  } else {
+    /* Chưa cấp quyền lần nào → hiện popup xin quyền */
+    resetNotifAndAsk();
   }
 }
 

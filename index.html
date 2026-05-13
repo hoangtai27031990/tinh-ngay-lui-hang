@@ -915,6 +915,20 @@ function completeProduct(id){
   let data = JSON.parse(localStorage.getItem(historyKey) || "[]");
   data = data.map(item => item.id === id ? {...item, completed: true} : item);
   localStorage.setItem(historyKey, JSON.stringify(data));
+
+  /* Báo SW user đã xử lý → hủy nhắc lại nếu không còn sản phẩm pending */
+  const stillPending = data.some(item => {
+    if (item.completed) return false;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const m30 = new Date(item.M30); m30.setHours(0,0,0,0);
+    const diff = Math.round((m30 - today) / 86400000);
+    return diff <= 3 || today >= m30;
+  });
+  if (!stillPending) {
+    const sw = swReg && (swReg.active || swReg.waiting);
+    if (sw) sw.postMessage({ type: "PRODUCTS_COMPLETED" });
+  }
+  localStorage.setItem(historyKey, JSON.stringify(data));
   const today = new Date(); today.setHours(0,0,0,0);
   const warningProducts = data.filter(item => {
     if(item.completed) return false;
@@ -942,20 +956,27 @@ function closeCheckDatePopup(){
   isCheckDatePopupShowing = false; /* [F1] dùng biến riêng */
 }
 
-/* Hiển thị popup từ thông báo — tiêu đề và màu theo loại cảnh báo */
+/* Hiển thị popup từ thông báo — tiêu đề tổng hợp toàn bộ sản phẩm cần xử lý */
 function showCheckDatePopupFromNotif(list, tag) {
   const titleEl = document.querySelector("#checkDateBox .font-bold.text-red-600");
   if (titleEl) {
-    if (tag === "exp") {
-      titleEl.textContent   = "❌ SẢN PHẨM HẾT HẠN";
-      titleEl.style.color   = "#991b1b";
-    } else if (tag === "20") {
-      titleEl.textContent   = "🔴 RÚT HÀNG NGAY";
-      titleEl.style.color   = "#b91c1c";
-    } else {
-      titleEl.textContent   = "⚠️ SẢN PHẨM CẦN GIẢI TỒN";
-      titleEl.style.color   = "#c2410c";
-    }
+    /* Đếm từng loại trong danh sách */
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    let cExp = 0, c20 = 0, c30 = 0;
+    list.forEach(item => {
+      const hsd = new Date(item.HSD); hsd.setHours(0, 0, 0, 0);
+      const m20 = new Date(item.M20); m20.setHours(0, 0, 0, 0);
+      const m30 = new Date(item.M30); m30.setHours(0, 0, 0, 0);
+      if (hsd <= today)      cExp++;
+      else if (today >= m20) c20++;
+      else                   c30++;
+    });
+    const parts = [];
+    if (cExp) parts.push(`❌ ${cExp} hết hạn`);
+    if (c20)  parts.push(`🔴 ${c20} rút hàng`);
+    if (c30)  parts.push(`⚠️ ${c30} giải tồn`);
+    titleEl.textContent = parts.length ? parts.join(" · ") : "SẢN PHẨM CẦN XỬ LÝ";
+    titleEl.style.color = cExp ? "#991b1b" : c20 ? "#b91c1c" : "#c2410c";
   }
   showCheckDatePopup(list);
 }

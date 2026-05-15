@@ -730,6 +730,8 @@ function renderProductCard(x, showComplete = false){
     tag30 = `<span class="tag tag-dark">⚠️ Đã qua ${Math.abs(days30)} ngày — Giải tồn</span>`;
   } else if(days30 === 0){
     tag30 = `<span class="tag tag-orange">⚠️ Hôm nay đến mốc 30%</span>`;
+  } else if(days30 <= WARN_BEFORE_M30_DAYS){
+    tag30 = `<span class="tag tag-orange">🔔 Còn ${days30} ngày → mốc 30%</span>`;
   } else {
     tag30 = `<span class="tag tag-green">✅ Còn ${days30} ngày → 30%</span>`;
   }
@@ -872,6 +874,9 @@ function resetForm(){
 }
 
 /* ================= CHECK DATE POPUP (FIXED LOGIC) ================= */
+// Số ngày trước mốc 30% để bắt đầu cảnh báo — đồng bộ với SW
+const WARN_BEFORE_M30_DAYS = 15;
+
 function checkStoredProducts(){
   if(isCheckDatePopupShowing) return;
   let data = JSON.parse(localStorage.getItem(historyKey) || "[]");
@@ -879,16 +884,19 @@ function checkStoredProducts(){
   
   const today = new Date(); today.setHours(0,0,0,0);
   
-  // Lọc lấy TẤT CẢ các sản phẩm chưa xử lý đã đến mốc 30% trở đi
+  // Lọc lấy TẤT CẢ các sản phẩm chưa xử lý đã đến ngưỡng cảnh báo:
+  // - Sắp đến mốc 30% trong vòng WARN_BEFORE_M30_DAYS ngày (15 ngày)
+  // - Đã qua mốc 30%, mốc 20%, hoặc hết hạn
   let warningProducts = data.filter(item => {
     if(item.completed === true) return false;
     const m30 = new Date(item.M30);
     if(!m30 || isNaN(m30)) return false;
     m30.setHours(0,0,0,0);
     
-    // Hiện popup nếu đã đến mốc 30% (hoặc sắp đến trong 3 ngày)
-    // Điều này tự động bao gồm mốc 20% và Hết hạn vì chúng nằm sau mốc 30%
-    const triggerDate = new Date(m30); triggerDate.setDate(triggerDate.getDate() - 3);
+    // Cảnh báo trước 15 ngày so với mốc 30%
+    // (mốc 20% và Hết hạn nằm sau mốc 30% nên tự động được bao gồm)
+    const triggerDate = new Date(m30);
+    triggerDate.setDate(triggerDate.getDate() - WARN_BEFORE_M30_DAYS);
     return today >= triggerDate;
   });
 
@@ -906,22 +914,25 @@ function showCheckDatePopupFromNotif(list, tag) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   
   // Đếm các loại để hiển thị tiêu đề chính xác
-  let cExp = 0, c20 = 0, c30 = 0;
+  let cExp = 0, c20 = 0, c30 = 0, cPre30 = 0;
   list.forEach(item => {
     const hsd = new Date(item.HSD); hsd.setHours(0, 0, 0, 0);
     const m20 = new Date(item.M20); m20.setHours(0, 0, 0, 0);
-    if (today >= hsd) cExp++;
+    const m30 = new Date(item.M30); m30.setHours(0, 0, 0, 0);
+    if (today >= hsd)      cExp++;
     else if (today >= m20) c20++;
-    else c30++;
+    else if (today >= m30) c30++;
+    else                   cPre30++; // Sắp đến mốc 30% (trong 15 ngày tới)
   });
 
   if (titleEl) {
     const parts = [];
-    if (cExp) parts.push(`❌ ${cExp} hết hạn`);
-    if (c20)  parts.push(`🔴 ${c20} rút hàng`);
-    if (c30)  parts.push(`⚠️ ${c30} giải tồn`);
+    if (cExp)   parts.push(`❌ ${cExp} hết hạn`);
+    if (c20)    parts.push(`🔴 ${c20} rút hàng`);
+    if (c30)    parts.push(`⚠️ ${c30} giải tồn`);
+    if (cPre30) parts.push(`🔔 ${cPre30} sắp đến mốc 30%`);
     titleEl.textContent = parts.length ? parts.join(" · ") : "SẢN PHẨM CẦN XỬ LÝ";
-    titleEl.style.color = cExp ? "#991b1b" : (c20 ? "#dc2626" : "#ea580c");
+    titleEl.style.color = cExp ? "#991b1b" : (c20 ? "#dc2626" : (c30 ? "#ea580c" : "#d97706"));
   }
 
   isCheckDatePopupShowing = true;
@@ -949,7 +960,10 @@ function completeProduct(id){
   const remaining = data.filter(item => {
     if(item.completed) return false;
     const m30 = new Date(item.M30);
-    const triggerDate = new Date(m30); triggerDate.setDate(triggerDate.getDate() - 3);
+    if(!m30 || isNaN(m30)) return false;
+    m30.setHours(0,0,0,0);
+    const triggerDate = new Date(m30);
+    triggerDate.setDate(triggerDate.getDate() - WARN_BEFORE_M30_DAYS);
     return today >= triggerDate;
   });
 

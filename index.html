@@ -1027,15 +1027,43 @@ function showToast(message = "Đã xử lý"){
 
 /* ================= SERVICE WORKER ================= */
 let swReg = null;
+
+/* Chờ SW chuyển sang trạng thái active thật sự trước khi postMessage */
+function waitForActiveWorker(reg) {
+  return new Promise(resolve => {
+    if (reg.active) { resolve(reg.active); return; }
+    const worker = reg.installing || reg.waiting;
+    if (!worker) { resolve(null); return; }
+    worker.addEventListener("statechange", function onState() {
+      if (worker.state === "activated") {
+        worker.removeEventListener("statechange", onState);
+        resolve(worker);
+      }
+    });
+  });
+}
+
+/* Đăng ký Periodic Background Sync cho Chrome Android */
+async function registerPeriodicSync(reg) {
+  if (!("periodicSync" in reg)) return;
+  try {
+    const status = await navigator.permissions.query({ name: "periodic-background-sync" });
+    if (status.state === "granted") {
+      await reg.periodicSync.register("hsd-daily-check", { minInterval: 12 * 60 * 60 * 1000 });
+    }
+  } catch(e) {}
+}
+
 async function initServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   try {
     swReg = await navigator.serviceWorker.register("sw.js", { scope: "./" });
+
     navigator.serviceWorker.addEventListener("message", e => {
       if (e.data && e.data.type === "REQUEST_PRODUCTS") {
         const products = JSON.parse(localStorage.getItem(historyKey) || "[]");
         const sw = swReg.active || swReg.waiting;
-        if (sw) sw.postMessage({ type: "PRODUCTS_DATA", products: products, source: e.data.source || "app" });
+        if (sw) sw.postMessage({ type: "PRODUCTS_DATA", products, source: e.data.source || "app" });
       }
       if (e.data && e.data.type === "SHOW_NOTIF_PRODUCTS") {
         const { tag, items } = e.data;
@@ -1049,8 +1077,14 @@ async function initServiceWorker() {
         }
       }
     });
-    const sw = swReg.active || swReg.waiting || swReg.installing;
-    if (sw) sw.postMessage({ type: "SCHEDULE_DAILY" });
+
+    /* Chờ SW active thật sự (tránh postMessage khi đang installing) */
+    const activeSW = await waitForActiveWorker(swReg);
+    if (activeSW) activeSW.postMessage({ type: "SCHEDULE_DAILY" });
+
+    /* Đăng ký Periodic Sync (chỉ chạy trên Android Chrome) */
+    await registerPeriodicSync(swReg);
+
     sendAppOpened();
   } catch(err) { console.warn("SW failed:", err); }
   updateBellIcon();
@@ -1076,8 +1110,10 @@ async function notifAllow() {
   localStorage.setItem("notif_enabled", "1");
   const result = await Notification.requestPermission();
   if (result === "granted") {
-    const sw = swReg && (swReg.active || swReg.waiting);
-    if (sw) sw.postMessage({ type: "SCHEDULE_DAILY" });
+    /* Chờ SW active trước khi gửi SCHEDULE_DAILY */
+    const activeSW = swReg ? await waitForActiveWorker(swReg) : null;
+    if (activeSW) activeSW.postMessage({ type: "SCHEDULE_DAILY" });
+    await registerPeriodicSync(swReg);
     sendAppOpened();
     showToast("✅ Đã bật thông báo");
   } else { localStorage.setItem("notif_dismissed", "1"); }

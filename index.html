@@ -219,7 +219,7 @@ body{background:#f3f4f6}
      class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-50 z-[2100]">
   <div id="checkDateInner"
        class="bg-white p-5 rounded-xl w-[95%] max-w-md text-center">
-    <div class="font-bold text-lg mb-3 text-red-600">SẢN PHẨM CẦN XỬ LÝ</div>
+    <div id="checkDateTitle" class="font-bold text-lg mb-3 text-red-600">SẢN PHẨM CẦN XỬ LÝ</div>
     <div id="checkDateList" class="text-left space-y-3 max-h-80 overflow-auto"></div>
     <div class="mt-4">
       <button onclick="closeCheckDatePopup()" class="bg-gray-600 text-white px-4 py-2 rounded">ĐÃ HIỂU</button>
@@ -338,7 +338,7 @@ body{background:#f3f4f6}
   <div id="beforeHsdBlock" class="hidden">
     <label class="font-semibold">Thời gian trước HSD</label>
     <div class="flex gap-2">
-      <input type="number" id="beforeHsdValue" class="border p-2 rounded w-1/2" placeholder="Ví dụ: 6">
+      <input type="number" id="beforeHsdValue" class="border p-2 rounded w-1/2" placeholder="Ví dụ: 6" min="1">
       <select id="beforeHsdUnit" class="border p-2 rounded w-1/2">
         <option value="day">Ngày</option>
         <option value="month">Tháng</option>
@@ -350,7 +350,7 @@ body{background:#f3f4f6}
   <div id="nsxPeriodBlock" class="hidden">
     <label class="font-semibold">Thời gian sử dụng từ NSX</label>
     <div class="flex gap-2">
-      <input type="number" id="periodValue" class="border p-2 rounded w-1/2" placeholder="Ví dụ: 6">
+      <input type="number" id="periodValue" class="border p-2 rounded w-1/2" placeholder="Ví dụ: 6" min="1">
       <select id="periodUnit" class="border p-2 rounded w-1/2">
         <option value="day">Ngày</option>
         <option value="month">Tháng</option>
@@ -433,6 +433,56 @@ body{background:#f3f4f6}
 <div id="toastBox" class="toast"></div>
 
 <script>
+/* ================= UTILS & CONSTANTS ================= */
+const historyKey        = "coop_hsd_history";
+const printKey          = "coop_print_history";
+const WARN_BEFORE_M30_DAYS = 15;
+
+/* ---- Safe localStorage helpers ---- */
+function lsGet(key, fallback){
+  try {
+    const raw = localStorage.getItem(key);
+    if(raw === null) return fallback;
+    return JSON.parse(raw);
+  } catch(e) {
+    console.warn("localStorage parse error:", key, e);
+    return fallback;
+  }
+}
+function lsSet(key, value){
+  try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+  catch(e) { console.warn("localStorage write error:", key, e); showToast("⚠️ Lưu dữ liệu thất bại"); return false; }
+}
+
+/* ---- XSS escape ---- */
+function esc(str){
+  if(!str) return "";
+  return String(str)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#39;");
+}
+
+function isIOS(){ return /iPhone|iPad|iPod/i.test(navigator.userAgent); }
+function diffDays(a, b){ return Math.round((b - a) / 86400000); }
+
+/* ================= DOM REFS ================= */
+const sidebar  = document.getElementById("sidebar");
+const overlay  = document.getElementById("overlay");
+const mainApp  = document.getElementById("mainApp");
+const printApp = document.getElementById("printApp");
+
+/* ================= STATE ================= */
+let qr = null, qr2 = null;
+let currentFilter          = "all";
+let isScanning             = false;
+let isPopupShowing         = false;
+let isCheckDatePopupShowing = false;
+let swReg                  = null;
+let toastTimer             = null;
+
 /* ================= DATE QUICK ENTRY ================= */
 function handleDateInput(el, targetId){
   let raw = el.value.replace(/\D/g, "");
@@ -467,10 +517,14 @@ function parseDateInput(el, targetId, digits){
   const month = parseInt(m, 10);
   const year  = parseInt(y, 10);
   if(month < 1 || month > 12){ setDateError(el, targetId, "Tháng không hợp lệ (01–12)"); return; }
-  if(day < 1 || day > 31){ setDateError(el, targetId, "Ngày không hợp lệ (01–31)"); return; }
+  if(day < 1 || day > 31)    { setDateError(el, targetId, "Ngày không hợp lệ (01–31)");  return; }
   if(year < 2000 || year > 2100){ setDateError(el, targetId, "Năm không hợp lệ (2000–2100)"); return; }
+  // Validate ngày tháng thực tế (vd: 31/04 không tồn tại)
   const dateObj = new Date(year, month - 1, day);
-  if(dateObj.getMonth() !== month - 1 || dateObj.getDate() !== day){ setDateError(el, targetId, "Ngày không tồn tại"); return; }
+  if(dateObj.getMonth() !== month - 1 || dateObj.getDate() !== day){
+    setDateError(el, targetId, "Ngày không tồn tại");
+    return;
+  }
   const iso = `${y}-${m}-${d}`;
   document.getElementById(targetId).value = iso;
   const preview = document.getElementById(targetId + "Preview");
@@ -497,21 +551,11 @@ function clearDatePreview(el, targetId){
   el.classList.remove("ok","err");
 }
 
-/* ================= UTILS ================= */
-function isIOS(){ return /iPhone|iPad|iPod/i.test(navigator.userAgent); }
-
-const historyKey = "coop_hsd_history";
-const printKey   = "coop_print_history";
-
-const sidebar  = document.getElementById("sidebar");
-const overlay  = document.getElementById("overlay");
-const mainApp  = document.getElementById("mainApp");
-const printApp = document.getElementById("printApp");
-
+/* ================= MENU / NAVIGATION ================= */
 function toggleMenu(){ sidebar.classList.toggle("active"); overlay.classList.toggle("active"); }
 
 function stopAllScanner(){
-  if(qr){ try{ qr.stop().then(()=>qr.clear()).catch(()=>{}); }catch(e){} qr = null; }
+  if(qr){  try{ qr.stop().then(()=>qr.clear()).catch(()=>{}); }catch(e){} qr = null; }
   if(qr2){ try{ qr2.stop().then(()=>qr2.clear()).catch(()=>{}); }catch(e){} qr2 = null; }
   isScanning = false;
 }
@@ -531,39 +575,32 @@ function showPrint(){
 
 function changeCalcMode(){
   const m = document.getElementById("calcMode").value;
-  document.getElementById("nsxBlock").classList.add("hidden");
-  document.getElementById("hsdBlock").classList.add("hidden");
-  document.getElementById("beforeHsdBlock").classList.add("hidden");
-  document.getElementById("nsxPeriodBlock").classList.add("hidden");
-  if(m === "full"){ document.getElementById("nsxBlock").classList.remove("hidden"); document.getElementById("hsdBlock").classList.remove("hidden"); }
-  if(m === "hsdBack"){ document.getElementById("hsdBlock").classList.remove("hidden"); document.getElementById("beforeHsdBlock").classList.remove("hidden"); }
-  if(m === "nsxPeriod"){ document.getElementById("nsxBlock").classList.remove("hidden"); document.getElementById("nsxPeriodBlock").classList.remove("hidden"); }
+  ["nsxBlock","hsdBlock","beforeHsdBlock","nsxPeriodBlock"].forEach(id =>
+    document.getElementById(id).classList.add("hidden")
+  );
+  if(m === "full")      { document.getElementById("nsxBlock").classList.remove("hidden"); document.getElementById("hsdBlock").classList.remove("hidden"); }
+  if(m === "hsdBack")   { document.getElementById("hsdBlock").classList.remove("hidden"); document.getElementById("beforeHsdBlock").classList.remove("hidden"); }
+  if(m === "nsxPeriod") { document.getElementById("nsxBlock").classList.remove("hidden"); document.getElementById("nsxPeriodBlock").classList.remove("hidden"); }
 }
 
 /* ================= AUTO CLEAN EXPIRED ================= */
 function autoCleanExpired(){
-  let data = JSON.parse(localStorage.getItem(historyKey) || "[]");
+  let data = lsGet(historyKey, []);
   if(!data.length) return;
   const today = new Date(); today.setHours(0,0,0,0);
+  const limit = new Date(today); limit.setDate(limit.getDate() - 30);
   const filtered = data.filter(item => {
     if(!item.HSD) return true;
     const hsd = new Date(item.HSD);
     if(isNaN(hsd)) return true;
     hsd.setHours(0,0,0,0);
-    // Giữ lại sản phẩm hết hạn chưa quá 30 ngày để quản lý xử lý
-    const limit = new Date(today); limit.setDate(limit.getDate() - 30);
     return hsd >= limit;
   });
-  if(filtered.length !== data.length){
-    localStorage.setItem(historyKey, JSON.stringify(filtered));
-  }
+  if(filtered.length !== data.length) lsSet(historyKey, filtered);
 }
 
 /* ================= SCAN ================= */
-const scanConfigAndroidWeak = { fps: 10, qrbox: 250 };
-let qr = null, qr2 = null, currentFilter = "all";
-let isScanning = false, isPopupShowing = false;
-let isCheckDatePopupShowing = false;
+const scanConfig = { fps: 10, qrbox: 250 };
 
 async function startScan(){
   if(isIOS()){ alert("⚠️ iPhone không hỗ trợ quét barcode.\nVui lòng nhập tay."); return; }
@@ -574,10 +611,20 @@ async function startScan(){
   r.innerHTML = `<div class="scan-frame"><div class="scan-line"></div></div>`;
   r.classList.remove("hidden");
   qr = new Html5Qrcode("reader");
-  qr.start({ facingMode: "environment" }, scanConfigAndroidWeak, code => {
-    document.getElementById("barcode").value = code;
-    qr.stop().then(()=>{ qr.clear(); qr = null; r.classList.add("hidden"); isScanning = false; });
-  }, ()=>{}).catch(()=>{ isScanning = false; r.classList.add("hidden"); });
+  qr.start(
+    { facingMode: "environment" },
+    scanConfig,
+    code => {
+      document.getElementById("barcode").value = code;
+      qr.stop().then(()=>{ qr.clear(); qr = null; r.classList.add("hidden"); isScanning = false; }).catch(()=>{ isScanning = false; });
+    },
+    () => {} // lỗi từng frame - bỏ qua
+  ).catch(err => {
+    console.warn("Scan start error:", err);
+    isScanning = false;
+    r.classList.add("hidden");
+    showToast("⚠️ Không thể mở camera");
+  });
 }
 
 async function startPrintScan(){
@@ -589,22 +636,35 @@ async function startPrintScan(){
   r.innerHTML = `<div class="scan-frame"><div class="scan-line"></div></div>`;
   r.classList.remove("hidden");
   qr2 = new Html5Qrcode("printReader");
-  qr2.start({ facingMode: "environment" }, scanConfigAndroidWeak, code => {
-    addBarcode(code);
-    qr2.stop().then(()=>{ qr2.clear(); qr2 = null; r.classList.add("hidden"); isScanning = false; });
-  }).catch(()=>{ isScanning = false; r.classList.add("hidden"); });
+  qr2.start(
+    { facingMode: "environment" },
+    scanConfig,
+    code => {
+      addBarcode(code);
+      qr2.stop().then(()=>{ qr2.clear(); qr2 = null; r.classList.add("hidden"); isScanning = false; }).catch(()=>{ isScanning = false; });
+    },
+    () => {} // lỗi từng frame - bỏ qua
+  ).catch(err => {
+    console.warn("Print scan start error:", err);
+    isScanning = false;
+    r.classList.add("hidden");
+    showToast("⚠️ Không thể mở camera");
+  });
 }
 
 /* ================= CALC HELPERS ================= */
 function addPeriod(date, value, unit){
   const d = new Date(date);
-  if(unit === "day") d.setDate(d.getDate() + value);
-  if(unit === "month"){ const day = d.getDate(); d.setMonth(d.getMonth() + value); if(d.getDate() < day) d.setDate(0); }
-  if(unit === "year") d.setFullYear(d.getFullYear() + value);
+  if(unit === "day")  { d.setDate(d.getDate() + value); }
+  if(unit === "month"){
+    const targetDay = d.getDate();
+    d.setMonth(d.getMonth() + value);
+    // Nếu ngày bị tràn sang tháng tiếp (vd: 31/01 + 1 tháng → 03/03), lùi về cuối tháng
+    if(d.getDate() < targetDay) d.setDate(0);
+  }
+  if(unit === "year") { d.setFullYear(d.getFullYear() + value); }
   return d;
 }
-
-function diffDays(a, b){ return Math.round((b - a) / 86400000); }
 
 /* ================= CALCULATE ================= */
 function calculate(){
@@ -612,7 +672,9 @@ function calculate(){
   const mode = document.getElementById("calcMode").value;
 
   if(mode === "full"){
-    if(!document.getElementById("nsx").value || !document.getElementById("hsd").value){ alert("Nhập đủ NSX & HSD"); return; }
+    if(!document.getElementById("nsx").value || !document.getElementById("hsd").value){
+      alert("Nhập đủ NSX & HSD"); return;
+    }
     nsxD = new Date(document.getElementById("nsx").value);
     hsdD = new Date(document.getElementById("hsd").value);
   }
@@ -620,7 +682,7 @@ function calculate(){
     if(!document.getElementById("hsd").value){ alert("Nhập HSD"); return; }
     const v = Number(document.getElementById("beforeHsdValue").value);
     const u = document.getElementById("beforeHsdUnit").value;
-    if(!v){ alert("Nhập thời gian trước HSD"); return; }
+    if(!v || v <= 0){ alert("Nhập thời gian trước HSD (số dương)"); return; }
     hsdD = new Date(document.getElementById("hsd").value);
     nsxD = addPeriod(hsdD, -v, u);
   }
@@ -628,14 +690,15 @@ function calculate(){
     if(!document.getElementById("nsx").value){ alert("Nhập NSX"); return; }
     const v = Number(document.getElementById("periodValue").value);
     const u = document.getElementById("periodUnit").value;
-    if(!v){ alert("Nhập thời gian sử dụng"); return; }
+    if(!v || v <= 0){ alert("Nhập thời gian sử dụng (số dương)"); return; }
     nsxD = new Date(document.getElementById("nsx").value);
     hsdD = addPeriod(nsxD, v, u);
   }
 
+  if(!nsxD || !hsdD || isNaN(nsxD) || isNaN(hsdD)){ alert("Ngày không hợp lệ"); return; }
   if(hsdD <= nsxD){ alert("HSD phải lớn hơn NSX"); return; }
 
-  const total = (hsdD - nsxD) / 86400000;
+  const total  = (hsdD - nsxD) / 86400000;
   const date30 = new Date(nsxD.getTime() + total * 0.7 * 86400000);
   const date20 = new Date(nsxD.getTime() + total * 0.8 * 86400000);
   const today  = new Date();
@@ -664,39 +727,41 @@ function calculate(){
 
 /* ================= SAVE HISTORY ================= */
 function saveHistory(nsxD, hsdD, date30, date20, f30, f20){
-  const data = JSON.parse(localStorage.getItem(historyKey)) || [];
+  const data = lsGet(historyKey, []);
   const record = {
     id: Date.now() + Math.random(),
-    TenSP: document.getElementById("productName").value.trim() || "",
-    Barcode: document.getElementById("barcode").value.trim() || "",
-    NSX: nsxD.toISOString(),
-    HSD: hsdD.toISOString(),
-    M30: date30.toISOString(),
-    M20: date20.toISOString(),
+    TenSP:    document.getElementById("productName").value.trim() || "",
+    Barcode:  document.getElementById("barcode").value.trim()     || "",
+    NSX:      nsxD.toISOString(),
+    HSD:      hsdD.toISOString(),
+    M30:      date30.toISOString(),
+    M20:      date20.toISOString(),
     CanhBao30: f30,
     CanhBao20: f20,
     ThoiGian: new Date().toLocaleString("vi-VN"),
     completed: false
   };
   data.unshift(record);
-  localStorage.setItem(historyKey, JSON.stringify(data));
+  lsSet(historyKey, data);
   renderHistory();
   renderOverview();
 }
 
 /* ================= OVERVIEW ================= */
 function renderOverview(){
-  const data = JSON.parse(localStorage.getItem(historyKey) || "[]");
+  const data  = lsGet(historyKey, []);
   const today = new Date(); today.setHours(0,0,0,0);
-
   let total = data.length, safe = 0, g30 = 0, g20 = 0, expired = 0;
 
   data.forEach(x => {
-    const hsd = new Date(x.HSD); hsd.setHours(0,0,0,0);
-    if(hsd < today){ expired++; return; }
-    if(x.CanhBao20 === "Rút hàng"){ g20++; }
-    else if(x.CanhBao30 === "Giải tồn"){ g30++; }
-    else { safe++; }
+    const hsd = new Date(x.HSD); if(isNaN(hsd)){ return; } hsd.setHours(0,0,0,0);
+    const m20 = new Date(x.M20); m20.setHours(0,0,0,0);
+    const m30 = new Date(x.M30); m30.setHours(0,0,0,0);
+    // Dùng so sánh thực tế theo ngày hiện tại (không phụ thuộc flag đã lưu)
+    if(today >= hsd)      { expired++; }
+    else if(today >= m20) { g20++; }
+    else if(today >= m30) { g30++; }
+    else                  { safe++; }
   });
 
   document.getElementById("ov-total").textContent = total;
@@ -716,10 +781,13 @@ function setFilter(type){
 
 /* ================= RENDER PRODUCT CARD ================= */
 function renderProductCard(x, showComplete = false){
-  const today  = new Date(); today.setHours(0,0,0,0);
-  const m30    = new Date(x.M30); m30.setHours(0,0,0,0);
-  const m20    = new Date(x.M20); m20.setHours(0,0,0,0);
-  const hsd    = new Date(x.HSD); hsd.setHours(0,0,0,0);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const m30   = new Date(x.M30); m30.setHours(0,0,0,0);
+  const m20   = new Date(x.M20); m20.setHours(0,0,0,0);
+  const hsd   = new Date(x.HSD); hsd.setHours(0,0,0,0);
+
+  // Kiểm tra ngày hợp lệ trước khi render
+  if(isNaN(m30) || isNaN(m20) || isNaN(hsd)) return "";
 
   const days30  = diffDays(today, m30);
   const days20  = diffDays(today, m20);
@@ -752,10 +820,12 @@ function renderProductCard(x, showComplete = false){
     tagHsd = `<span class="tag tag-blue">HSD còn ${daysHsd} ngày</span>`;
   }
 
-  const name    = x.TenSP   || "(chưa đặt tên)";
-  const barcode = x.Barcode || "-";
+  // Dùng esc() để tránh XSS khi hiển thị dữ liệu người dùng nhập
+  const name    = esc(x.TenSP)   || "(chưa đặt tên)";
+  const barcode = esc(x.Barcode) || "-";
+  const safeId  = String(x.id).replace(/[^a-zA-Z0-9._-]/g, "");
   const completeBtn = showComplete
-    ? `<button onclick="completeProduct(${x.id})"
+    ? `<button onclick="completeProduct('${safeId}')"
          class="mt-2 brand-bg text-white px-3 py-1 rounded text-sm font-semibold">
          ✅ HOÀN THÀNH
        </button>`
@@ -764,7 +834,7 @@ function renderProductCard(x, showComplete = false){
   return `
   <div class="hist-card">
     <div class="hist-name">${name}</div>
-    <div class="hist-meta">Barcode: ${barcode} &nbsp;|&nbsp; 🕐 ${x.ThoiGian || "-"}</div>
+    <div class="hist-meta">Barcode: ${barcode} &nbsp;|&nbsp; 🕐 ${esc(x.ThoiGian) || "-"}</div>
     <div class="tags">
       ${tag30}
       ${tag20}
@@ -781,9 +851,24 @@ function renderProductCard(x, showComplete = false){
 
 /* ================= RENDER HISTORY ================= */
 function renderHistory(){
-  let data = JSON.parse(localStorage.getItem(historyKey) || "[]");
-  if(currentFilter === "30") data = data.filter(x => x.CanhBao30 === "Giải tồn");
-  if(currentFilter === "20") data = data.filter(x => x.CanhBao20 === "Rút hàng");
+  let data = lsGet(historyKey, []);
+  // FIX: Filter theo mốc thực tế theo ngày hiện tại, không chỉ dựa vào flag đã lưu
+  const today = new Date(); today.setHours(0,0,0,0);
+  if(currentFilter === "30"){
+    data = data.filter(x => {
+      const m30 = new Date(x.M30); m30.setHours(0,0,0,0);
+      const m20 = new Date(x.M20); m20.setHours(0,0,0,0);
+      const hsd = new Date(x.HSD); hsd.setHours(0,0,0,0);
+      return today >= m30 && today < m20 && today < hsd;
+    });
+  }
+  if(currentFilter === "20"){
+    data = data.filter(x => {
+      const m20 = new Date(x.M20); m20.setHours(0,0,0,0);
+      const hsd = new Date(x.HSD); hsd.setHours(0,0,0,0);
+      return today >= m20 && today < hsd;
+    });
+  }
   const container = document.getElementById("historyList");
   if(!data.length){
     container.innerHTML = "<div class='text-gray-400 italic p-2'>Không có dữ liệu phù hợp</div>";
@@ -796,16 +881,17 @@ function renderHistory(){
 
 /* ================= CLEAR / DELETE ================= */
 function clearHistory(){
-  const data = JSON.parse(localStorage.getItem(historyKey) || "[]");
+  const data = lsGet(historyKey, []);
   if(!data.length){ alert("Không có dữ liệu để xóa"); return; }
   document.getElementById("confirmBox").classList.remove("hidden");
   document.getElementById("confirmBox").classList.add("flex");
 }
 function confirmDeleteHistory(){
-  localStorage.removeItem(historyKey);
+  lsSet(historyKey, []);
   renderHistory();
   renderOverview();
   closeConfirmPopup();
+  showToast("🗑 Đã xóa toàn bộ lịch sử");
 }
 function closeConfirmPopup(){
   const box = document.getElementById("confirmBox");
@@ -815,25 +901,35 @@ function closeConfirmPopup(){
 
 /* ================= EXPORT EXCEL ================= */
 function exportExcel(){
-  const h = JSON.parse(localStorage.getItem(historyKey) || "[]");
+  const h = lsGet(historyKey, []);
   if(!h.length){ alert("Không có dữ liệu"); return; }
-  const exportData = h.map(x => ({
-    "Tên SP": x.TenSP || "",
-    "Barcode": x.Barcode || "",
-    "NSX": new Date(x.NSX).toLocaleDateString("vi-VN"),
-    "HSD": new Date(x.HSD).toLocaleDateString("vi-VN"),
-    "Mốc 30%": new Date(x.M30).toLocaleDateString("vi-VN"),
-    "Mốc 20%": new Date(x.M20).toLocaleDateString("vi-VN"),
-    "Trạng thái 30%": x.CanhBao30,
-    "Trạng thái 20%": x.CanhBao20,
-    "Thời gian tính": x.ThoiGian,
-    "Đã xử lý": x.completed ? "Rồi" : "Chưa"
-  }));
-  const ws = XLSX.utils.json_to_sheet(exportData);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "HSD");
-  XLSX.writeFile(wb, "saigoncoop_hsd.xlsx");
-  showPopup("export");
+  const exportData = h.map(x => {
+    const nsxDate = new Date(x.NSX);
+    const hsdDate = new Date(x.HSD);
+    const m30Date = new Date(x.M30);
+    const m20Date = new Date(x.M20);
+    return {
+      "Tên SP":          x.TenSP   || "",
+      "Barcode":         x.Barcode || "",
+      "NSX":             isNaN(nsxDate) ? "" : nsxDate.toLocaleDateString("vi-VN"),
+      "HSD":             isNaN(hsdDate) ? "" : hsdDate.toLocaleDateString("vi-VN"),
+      "Mốc 30%":        isNaN(m30Date) ? "" : m30Date.toLocaleDateString("vi-VN"),
+      "Mốc 20%":        isNaN(m20Date) ? "" : m20Date.toLocaleDateString("vi-VN"),
+      "Trạng thái 30%": x.CanhBao30   || "",
+      "Trạng thái 20%": x.CanhBao20   || "",
+      "Thời gian tính": x.ThoiGian    || "",
+      "Đã xử lý":       x.completed ? "Rồi" : "Chưa"
+    };
+  });
+  try {
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "HSD");
+    XLSX.writeFile(wb, "saigoncoop_hsd.xlsx");
+    showPopup("export");
+  } catch(e) {
+    alert("Xuất Excel thất bại: " + e.message);
+  }
 }
 
 /* ================= POPUP ================= */
@@ -845,9 +941,9 @@ function showPopup(type){
   const title = document.getElementById("popupTitle");
   const msg   = document.getElementById("popupMsg");
   box.className = "bg-white p-5 rounded-xl w-[90%] max-w-sm text-center";
-  if(type === "20"){ title.innerText = "CẢNH BÁO MỐC 20%"; msg.innerText = "Rút hàng khỏi quầy ngay."; box.classList.add("popup-pulse-20"); }
-  else if(type === "30"){ title.innerText = "CẢNH BÁO MỐC 30%"; msg.innerText = "Báo cáo quản lý để thực hiện giải tồn."; box.classList.add("popup-pulse-30"); }
-  else if(type === "export"){ title.innerText = "XUẤT FILE THÀNH CÔNG"; msg.innerText = "Dữ liệu đã được tải về."; }
+  if(type === "20")    { title.textContent = "CẢNH BÁO MỐC 20%"; msg.textContent = "Rút hàng khỏi quầy ngay."; box.classList.add("popup-pulse-20"); }
+  else if(type === "30"){ title.textContent = "CẢNH BÁO MỐC 30%"; msg.textContent = "Báo cáo quản lý để thực hiện giải tồn."; box.classList.add("popup-pulse-30"); }
+  else if(type === "export"){ title.textContent = "XUẤT FILE THÀNH CÔNG"; msg.textContent = "Dữ liệu đã được tải về."; }
   popup.classList.remove("hidden");
   popup.classList.add("flex");
   if(type === "export") setTimeout(closePopup, 2500);
@@ -860,7 +956,8 @@ function closePopup(){
 
 function resetForm(){
   ["productName","barcode","nsx","hsd","beforeHsdValue","periodValue"].forEach(id => {
-    document.getElementById(id).value = "";
+    const el = document.getElementById(id);
+    if(el) el.value = "";
   });
   ["nsxText","hsdText"].forEach(id => {
     const el = document.getElementById(id);
@@ -873,64 +970,52 @@ function resetForm(){
   document.getElementById("result").innerHTML = "";
 }
 
-/* ================= CHECK DATE POPUP (FIXED LOGIC) ================= */
-// Số ngày trước mốc 30% để bắt đầu cảnh báo — đồng bộ với SW
-const WARN_BEFORE_M30_DAYS = 15;
-
+/* ================= CHECK DATE POPUP ================= */
 function checkStoredProducts(){
   if(isCheckDatePopupShowing) return;
-  let data = JSON.parse(localStorage.getItem(historyKey) || "[]");
-  if(!Array.isArray(data) || !data.length){ closeCheckDatePopup(); return; }
-  
+  const data = lsGet(historyKey, []);
+  if(!Array.isArray(data) || !data.length){ return; }
+
   const today = new Date(); today.setHours(0,0,0,0);
-  
-  // Lọc lấy TẤT CẢ các sản phẩm chưa xử lý đã đến ngưỡng cảnh báo:
-  // - Sắp đến mốc 30% trong vòng WARN_BEFORE_M30_DAYS ngày (15 ngày)
-  // - Đã qua mốc 30%, mốc 20%, hoặc hết hạn
   let warningProducts = data.filter(item => {
     if(item.completed === true) return false;
     const m30 = new Date(item.M30);
-    if(!m30 || isNaN(m30)) return false;
+    if(isNaN(m30)) return false;
     m30.setHours(0,0,0,0);
-    
-    // Cảnh báo trước 15 ngày so với mốc 30%
-    // (mốc 20% và Hết hạn nằm sau mốc 30% nên tự động được bao gồm)
     const triggerDate = new Date(m30);
     triggerDate.setDate(triggerDate.getDate() - WARN_BEFORE_M30_DAYS);
     return today >= triggerDate;
   });
 
-  if(warningProducts.length) {
-    // Sắp xếp theo mức độ khẩn cấp (HSD gần nhất lên đầu)
+  if(warningProducts.length){
     warningProducts.sort((a,b) => new Date(a.HSD) - new Date(b.HSD));
     showCheckDatePopupFromNotif(warningProducts);
-  } else {
-    closeCheckDatePopup();
   }
+  // Không gọi closeCheckDatePopup() khi không có warning để tránh đóng popup SW đang mở
 }
 
-function showCheckDatePopupFromNotif(list, tag) {
-  const titleEl = document.querySelector("#checkDateBox .font-bold.text-red-600");
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  
-  // Đếm các loại để hiển thị tiêu đề chính xác
+function showCheckDatePopupFromNotif(list, tag){
+  // FIX: dùng id selector chính xác thay vì querySelector với class kép
+  const titleEl = document.getElementById("checkDateTitle");
+  const today   = new Date(); today.setHours(0, 0, 0, 0);
+
   let cExp = 0, c20 = 0, c30 = 0, cPre30 = 0;
   list.forEach(item => {
     const hsd = new Date(item.HSD); hsd.setHours(0, 0, 0, 0);
     const m20 = new Date(item.M20); m20.setHours(0, 0, 0, 0);
     const m30 = new Date(item.M30); m30.setHours(0, 0, 0, 0);
-    if (today >= hsd)      cExp++;
-    else if (today >= m20) c20++;
-    else if (today >= m30) c30++;
-    else                   cPre30++; // Sắp đến mốc 30% (trong 15 ngày tới)
+    if(today >= hsd)      cExp++;
+    else if(today >= m20) c20++;
+    else if(today >= m30) c30++;
+    else                  cPre30++;
   });
 
-  if (titleEl) {
+  if(titleEl){
     const parts = [];
-    if (cExp)   parts.push(`❌ ${cExp} hết hạn`);
-    if (c20)    parts.push(`🔴 ${c20} rút hàng`);
-    if (c30)    parts.push(`⚠️ ${c30} giải tồn`);
-    if (cPre30) parts.push(`🔔 ${cPre30} sắp đến mốc 30%`);
+    if(cExp)   parts.push(`❌ ${cExp} hết hạn`);
+    if(c20)    parts.push(`🔴 ${c20} rút hàng`);
+    if(c30)    parts.push(`⚠️ ${c30} giải tồn`);
+    if(cPre30) parts.push(`🔔 ${cPre30} sắp đến mốc 30%`);
     titleEl.textContent = parts.length ? parts.join(" · ") : "SẢN PHẨM CẦN XỬ LÝ";
     titleEl.style.color = cExp ? "#991b1b" : (c20 ? "#dc2626" : (c30 ? "#ea580c" : "#d97706"));
   }
@@ -939,7 +1024,7 @@ function showCheckDatePopupFromNotif(list, tag) {
   const box       = document.getElementById("checkDateBox");
   const inner     = document.getElementById("checkDateInner");
   const container = document.getElementById("checkDateList");
-  
+
   container.innerHTML = list.map(item => renderProductCard(item, true)).join("");
   inner.classList.add("checkdate-pulse");
   box.classList.remove("hidden");
@@ -947,36 +1032,36 @@ function showCheckDatePopupFromNotif(list, tag) {
 }
 
 function completeProduct(id){
-  let data = JSON.parse(localStorage.getItem(historyKey) || "[]");
-  data = data.map(item => item.id === id ? {...item, completed: true} : item);
-  localStorage.setItem(historyKey, JSON.stringify(data));
+  let data = lsGet(historyKey, []);
+  // FIX: so sánh id bất kể kiểu (string hay number)
+  data = data.map(item => String(item.id) === String(id) ? {...item, completed: true} : item);
+  lsSet(historyKey, data);
 
-  // Báo SW user đã xử lý
   const sw = swReg && (swReg.active || swReg.waiting);
-  if (sw) sw.postMessage({ type: "PRODUCTS_COMPLETED" });
+  if(sw) sw.postMessage({ type: "PRODUCTS_COMPLETED" });
 
-  // Kiểm tra lại danh sách còn nợ để cập nhật popup ngay lập tức
   const today = new Date(); today.setHours(0,0,0,0);
   const remaining = data.filter(item => {
     if(item.completed) return false;
     const m30 = new Date(item.M30);
-    if(!m30 || isNaN(m30)) return false;
+    if(isNaN(m30)) return false;
     m30.setHours(0,0,0,0);
     const triggerDate = new Date(m30);
     triggerDate.setDate(triggerDate.getDate() - WARN_BEFORE_M30_DAYS);
     return today >= triggerDate;
   });
 
-  if(remaining.length > 0) {
+  if(remaining.length){
     remaining.sort((a,b) => new Date(a.HSD) - new Date(b.HSD));
+    isCheckDatePopupShowing = false; // reset để cho phép show lại
     showCheckDatePopupFromNotif(remaining);
   } else {
     closeCheckDatePopup();
   }
-  
+
   renderHistory();
   renderOverview();
-  showToast("Đã xử lý sản phẩm");
+  showToast("✅ Đã xử lý sản phẩm");
 }
 
 function closeCheckDatePopup(){
@@ -990,20 +1075,21 @@ function closeCheckDatePopup(){
 
 /* ================= PRINT MODULE ================= */
 function addBarcode(code){
-  let d = JSON.parse(localStorage.getItem(printKey) || "{}");
-  d[code] = (d[code] || 0) + 1;
-  localStorage.setItem(printKey, JSON.stringify(d));
+  if(!code || !code.trim()) return;
+  let d = lsGet(printKey, {});
+  d[code.trim()] = (d[code.trim()] || 0) + 1;
+  lsSet(printKey, d);
   renderPrint();
 }
 function renderPrint(){
-  const d = JSON.parse(localStorage.getItem(printKey) || "{}");
+  const d = lsGet(printKey, {});
   document.getElementById("printHistory").innerHTML = Object.entries(d).map(([b,q]) =>
-    `<div class="chat-item">${b},${q}</div>`
+    `<div class="chat-item">${esc(b)},${Number(q)}</div>`
   ).join("");
 }
-function clearPrintHistory(){ localStorage.removeItem(printKey); renderPrint(); }
+function clearPrintHistory(){ lsSet(printKey, {}); renderPrint(); showToast("🗑 Đã xóa"); }
 function exportText(){
-  const d = JSON.parse(localStorage.getItem(printKey) || "{}");
+  const d = lsGet(printKey, {});
   if(!Object.keys(d).length){ alert("Không có dữ liệu"); return; }
   const txt  = Object.entries(d).map(([b,q]) => `${b},${q}`).join("\n");
   const blob = new Blob([txt], {type:"text/plain;charset=utf-8"});
@@ -1012,7 +1098,7 @@ function exportText(){
   a.href = url; a.download = "barcode_print.txt";
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  localStorage.removeItem(printKey);
+  lsSet(printKey, {});
   renderPrint();
   showPopup("export");
 }
@@ -1020,22 +1106,21 @@ function exportText(){
 /* ================= TOAST ================= */
 function showToast(message = "Đã xử lý"){
   const toast = document.getElementById("toastBox");
-  toast.innerText = message;
+  if(!toast) return;
+  if(toastTimer) clearTimeout(toastTimer);
+  toast.textContent = message;
   toast.classList.add("show");
-  setTimeout(() => toast.classList.remove("show"), 2500);
+  toastTimer = setTimeout(() => { toast.classList.remove("show"); toastTimer = null; }, 2500);
 }
 
 /* ================= SERVICE WORKER ================= */
-let swReg = null;
-
-/* Chờ SW chuyển sang trạng thái active thật sự trước khi postMessage */
-function waitForActiveWorker(reg) {
+function waitForActiveWorker(reg){
   return new Promise(resolve => {
-    if (reg.active) { resolve(reg.active); return; }
+    if(reg.active){ resolve(reg.active); return; }
     const worker = reg.installing || reg.waiting;
-    if (!worker) { resolve(null); return; }
-    worker.addEventListener("statechange", function onState() {
-      if (worker.state === "activated") {
+    if(!worker){ resolve(null); return; }
+    worker.addEventListener("statechange", function onState(){
+      if(worker.state === "activated"){
         worker.removeEventListener("statechange", onState);
         resolve(worker);
       }
@@ -1043,101 +1128,106 @@ function waitForActiveWorker(reg) {
   });
 }
 
-/* Đăng ký Periodic Background Sync cho Chrome Android */
-async function registerPeriodicSync(reg) {
-  if (!("periodicSync" in reg)) return;
+async function registerPeriodicSync(reg){
+  if(!("periodicSync" in reg)) return;
   try {
     const status = await navigator.permissions.query({ name: "periodic-background-sync" });
-    if (status.state === "granted") {
+    if(status.state === "granted"){
       await reg.periodicSync.register("hsd-daily-check", { minInterval: 12 * 60 * 60 * 1000 });
     }
   } catch(e) {}
 }
 
-async function initServiceWorker() {
-  if (!("serviceWorker" in navigator)) return;
+async function initServiceWorker(){
+  if(!("serviceWorker" in navigator)) return;
   try {
     swReg = await navigator.serviceWorker.register("sw.js", { scope: "./" });
 
     navigator.serviceWorker.addEventListener("message", e => {
-      if (e.data && e.data.type === "REQUEST_PRODUCTS") {
-        const products = JSON.parse(localStorage.getItem(historyKey) || "[]");
+      if(!e.data) return;
+      if(e.data.type === "REQUEST_PRODUCTS"){
+        const products = lsGet(historyKey, []);
         const sw = swReg.active || swReg.waiting;
-        if (sw) sw.postMessage({ type: "PRODUCTS_DATA", products, source: e.data.source || "app" });
+        if(sw) sw.postMessage({ type: "PRODUCTS_DATA", products, source: e.data.source || "app" });
       }
-      if (e.data && e.data.type === "SHOW_NOTIF_PRODUCTS") {
+      if(e.data.type === "SHOW_NOTIF_PRODUCTS"){
         const { tag, items } = e.data;
-        if (!Array.isArray(items) || !items.length) return;
-        const stored = JSON.parse(localStorage.getItem(historyKey) || "[]");
-        const idSet  = new Set(items.map(i => i.id));
-        const fresh  = stored.filter(p => idSet.has(p.id) && !p.completed);
-        if (fresh.length) {
+        if(!Array.isArray(items) || !items.length) return;
+        const stored = lsGet(historyKey, []);
+        const idSet  = new Set(items.map(i => String(i.id)));
+        const fresh  = stored.filter(p => idSet.has(String(p.id)) && !p.completed);
+        if(fresh.length){
           isCheckDatePopupShowing = false;
           showCheckDatePopupFromNotif(fresh, tag);
         }
       }
     });
 
-    /* Chờ SW active thật sự (tránh postMessage khi đang installing) */
     const activeSW = await waitForActiveWorker(swReg);
-    if (activeSW) activeSW.postMessage({ type: "SCHEDULE_DAILY" });
-
-    /* Đăng ký Periodic Sync (chỉ chạy trên Android Chrome) */
+    if(activeSW) activeSW.postMessage({ type: "SCHEDULE_DAILY" });
     await registerPeriodicSync(swReg);
-
     sendAppOpened();
-  } catch(err) { console.warn("SW failed:", err); }
+  } catch(err){ console.warn("SW failed:", err); }
   updateBellIcon();
   checkShowNotifPopup();
 }
 
-function sendAppOpened() {
+function sendAppOpened(){
   const sw = swReg && (swReg.active || swReg.waiting);
-  if (!sw) return;
-  const products = JSON.parse(localStorage.getItem(historyKey) || "[]");
+  if(!sw) return;
+  const products = lsGet(historyKey, []);
   sw.postMessage({ type: "APP_OPENED", products });
 }
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") sendAppOpened(); });
+document.addEventListener("visibilitychange", () => {
+  if(document.visibilityState === "visible") sendAppOpened();
+});
 
-function closeNotifPopup() { const p = document.getElementById("notifPopup"); p.classList.add("hidden"); p.classList.remove("flex"); }
-function checkShowNotifPopup() {
-  if (!("Notification" in window)) return;
-  if (Notification.permission === "granted" || Notification.permission === "denied" || localStorage.getItem("notif_enabled") || localStorage.getItem("notif_dismissed")) return;
-  const p = document.getElementById("notifPopup"); p.classList.remove("hidden"); p.classList.add("flex");
+function closeNotifPopup(){
+  const p = document.getElementById("notifPopup");
+  p.classList.add("hidden");
+  p.classList.remove("flex");
 }
-async function notifAllow() {
+function checkShowNotifPopup(){
+  if(!("Notification" in window)) return;
+  if(Notification.permission === "granted" || Notification.permission === "denied") return;
+  if(localStorage.getItem("notif_enabled") || localStorage.getItem("notif_dismissed")) return;
+  const p = document.getElementById("notifPopup");
+  p.classList.remove("hidden");
+  p.classList.add("flex");
+}
+async function notifAllow(){
   closeNotifPopup();
   localStorage.setItem("notif_enabled", "1");
   const result = await Notification.requestPermission();
-  if (result === "granted") {
-    /* Chờ SW active trước khi gửi SCHEDULE_DAILY */
+  if(result === "granted"){
     const activeSW = swReg ? await waitForActiveWorker(swReg) : null;
-    if (activeSW) activeSW.postMessage({ type: "SCHEDULE_DAILY" });
+    if(activeSW) activeSW.postMessage({ type: "SCHEDULE_DAILY" });
     await registerPeriodicSync(swReg);
     sendAppOpened();
     showToast("✅ Đã bật thông báo");
-  } else { localStorage.setItem("notif_dismissed", "1"); }
+  } else {
+    localStorage.setItem("notif_dismissed", "1");
+  }
   updateBellIcon();
 }
-function notifDeny() { closeNotifPopup(); localStorage.setItem("notif_dismissed", "1"); updateBellIcon(); }
-function resetNotifAndAsk() { localStorage.removeItem("notif_enabled"); localStorage.removeItem("notif_dismissed"); checkShowNotifPopup(); }
-function testNotification() {
-  if (Notification.permission !== "granted") { alert("Chưa cấp quyền."); return; }
+function notifDeny(){ closeNotifPopup(); localStorage.setItem("notif_dismissed", "1"); updateBellIcon(); }
+function resetNotifAndAsk(){ localStorage.removeItem("notif_enabled"); localStorage.removeItem("notif_dismissed"); checkShowNotifPopup(); }
+function testNotification(){
+  if(Notification.permission !== "granted"){ alert("Chưa cấp quyền thông báo."); return; }
   const sw = swReg && swReg.active;
-  if (sw) {
-    const products = JSON.parse(localStorage.getItem(historyKey) || "[]");
+  if(sw){
+    const products = lsGet(historyKey, []);
     sw.postMessage({ type: "CHECK_NOW", products });
   }
 }
-function updateBellIcon() {
+function updateBellIcon(){
   const btn = document.getElementById("bellBtn");
-  if (!btn) return;
-  if (Notification.permission === "granted") btn.textContent = "🔔";
-  else btn.textContent = "🔕";
+  if(!btn) return;
+  btn.textContent = Notification.permission === "granted" ? "🔔" : "🔕";
 }
-function bellClick() {
-  if (Notification.permission === "granted") showToast("🔔 Thông báo đang bật (08:00 & 14:00)");
-  else if (Notification.permission === "denied") showToast("🔕 Hãy bật lại thông báo trong cài đặt");
+function bellClick(){
+  if(Notification.permission === "granted") showToast("🔔 Thông báo đang bật (08:00 & 14:00)");
+  else if(Notification.permission === "denied") showToast("🔕 Hãy bật lại thông báo trong cài đặt trình duyệt");
   else resetNotifAndAsk();
 }
 

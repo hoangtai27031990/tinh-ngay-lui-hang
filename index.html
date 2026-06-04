@@ -1139,7 +1139,12 @@ async function registerPeriodicSync(reg){
 }
 
 async function initServiceWorker(){
-  if(!("serviceWorker" in navigator)) return;
+  if(!("serviceWorker" in navigator)){
+    console.warn("Trình duyệt không hỗ trợ Service Worker");
+    updateBellIcon();
+    checkShowNotifPopup();
+    return;
+  }
   try {
     swReg = await navigator.serviceWorker.register("sw.js", { scope: "./" });
 
@@ -1167,13 +1172,23 @@ async function initServiceWorker(){
     if(activeSW) activeSW.postMessage({ type: "SCHEDULE_DAILY" });
     await registerPeriodicSync(swReg);
     sendAppOpened();
-  } catch(err){ console.warn("SW failed:", err); }
+
+    /* [F6] Báo SW biết app đã sẵn sàng nhận SHOW_NOTIF_PRODUCTS
+       (dùng khi click notification mở tab mới) */
+    if(swReg.active) swReg.active.postMessage({ type: "APP_READY" });
+
+  } catch(err){
+    console.warn("SW registration failed:", err);
+    showToast("⚠️ Thông báo nền không khả dụng trên thiết bị này");
+  }
   updateBellIcon();
   checkShowNotifPopup();
 }
 
 function sendAppOpened(){
-  const sw = swReg && (swReg.active || swReg.waiting);
+  /* Chỉ gửi cho SW.active — SW.waiting chưa kiểm soát trang,
+     gửi cho nó có thể gây hành vi không dự đoán được */
+  const sw = swReg && swReg.active;
   if(!sw) return;
   const products = lsGet(historyKey, []);
   sw.postMessage({ type: "APP_OPENED", products });
@@ -1189,23 +1204,32 @@ function closeNotifPopup(){
 }
 function checkShowNotifPopup(){
   if(!("Notification" in window)) return;
-  if(Notification.permission === "granted" || Notification.permission === "denied") return;
-  if(localStorage.getItem("notif_enabled") || localStorage.getItem("notif_dismissed")) return;
+  const perm = Notification.permission;
+  if(perm === "denied") return;
+  /* Nếu đã được cấp quyền: cập nhật icon và thoát, không cần hỏi lại */
+  if(perm === "granted"){ updateBellIcon(); return; }
+  /* permission === "default": chỉ skip nếu user đã bấm "Không, cảm ơn"
+     KHÔNG skip dựa vào notif_enabled vì quyền có thể bị thu hồi sau đó */
+  if(localStorage.getItem("notif_dismissed")) return;
   const p = document.getElementById("notifPopup");
   p.classList.remove("hidden");
   p.classList.add("flex");
 }
 async function notifAllow(){
   closeNotifPopup();
-  localStorage.setItem("notif_enabled", "1");
   const result = await Notification.requestPermission();
   if(result === "granted"){
+    /* Chỉ set flag SAU khi người dùng thực sự bấm "Cho phép" */
+    localStorage.setItem("notif_enabled", "1");
+    localStorage.removeItem("notif_dismissed");
     const activeSW = swReg ? await waitForActiveWorker(swReg) : null;
     if(activeSW) activeSW.postMessage({ type: "SCHEDULE_DAILY" });
     await registerPeriodicSync(swReg);
     sendAppOpened();
     showToast("✅ Đã bật thông báo");
   } else {
+    /* Bị từ chối hoặc bỏ qua → xóa flag enabled, lưu dismissed */
+    localStorage.removeItem("notif_enabled");
     localStorage.setItem("notif_dismissed", "1");
   }
   updateBellIcon();
@@ -1214,11 +1238,12 @@ function notifDeny(){ closeNotifPopup(); localStorage.setItem("notif_dismissed",
 function resetNotifAndAsk(){ localStorage.removeItem("notif_enabled"); localStorage.removeItem("notif_dismissed"); checkShowNotifPopup(); }
 function testNotification(){
   if(Notification.permission !== "granted"){ alert("Chưa cấp quyền thông báo."); return; }
-  const sw = swReg && swReg.active;
-  if(sw){
-    const products = lsGet(historyKey, []);
-    sw.postMessage({ type: "CHECK_NOW", products });
-  }
+  if(!swReg){ showToast("⚠️ Service Worker chưa đăng ký được"); return; }
+  const sw = swReg.active;
+  if(!sw){ showToast("⚠️ Service Worker chưa sẵn sàng, thử lại sau vài giây"); return; }
+  const products = lsGet(historyKey, []);
+  sw.postMessage({ type: "CHECK_NOW", products });
+  showToast("📨 Đã gửi lệnh kiểm tra — chờ thông báo xuất hiện");
 }
 function updateBellIcon(){
   const btn = document.getElementById("bellBtn");

@@ -767,11 +767,8 @@ function esc(str){
 function isIOS(){ return /iPhone|iPad|iPod/i.test(navigator.userAgent); }
 function diffDays(a, b){ return Math.round((b - a) / 86400000); }
 
-/* ================= DOM REFS ================= */
-const sidebar  = document.getElementById("sidebar");
-const overlay  = document.getElementById("overlay");
-const mainApp  = document.getElementById("mainApp");
-const printApp = document.getElementById("printApp");
+/* ================= DOM REFS — khai báo trước, gán trong DOMContentLoaded ================= */
+let sidebar, overlay, mainApp, printApp;
 
 /* ================= STATE ================= */
 let qr = null, qr2 = null;
@@ -933,12 +930,20 @@ async function resizeImageFile(file, maxPx = 1280) {
 let _zbarPromise = null;
 async function getZBar() {
   if(_zbarPromise) return _zbarPromise;
-  _zbarPromise = new Promise((resolve, reject) => {
-    if(window.ZBar) { resolve(window.ZBar); return; }
+  _zbarPromise = new Promise((resolve) => {
+    // Thử tìm trong window trước (có thể đã load)
+    const existing = window.ZBar || window.zbar || window["zbar-wasm"] || window["@undecaf/zbar-wasm"];
+    if(existing) { resolve(existing); return; }
+
     const s = document.createElement("script");
     s.src = "https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.10.1/dist/main.js";
-    s.onload  = () => resolve(window.ZBar || window.zbar || window["zbar-wasm"]);
-    s.onerror = reject;
+    s.onload = () => {
+      // Thử tất cả tên có thể
+      const mod = window.ZBar || window.zbar || window["zbar-wasm"]
+                || window["@undecaf/zbar-wasm"] || window.zbarWasm;
+      resolve(mod || null);
+    };
+    s.onerror = () => resolve(null); // không reject — để fallback sang lớp 3
     document.head.appendChild(s);
   });
   return _zbarPromise;
@@ -948,7 +953,6 @@ async function decodeWithZBar(file) {
   const ZBar = await getZBar();
   if(!ZBar) throw new Error("ZBar không tải được");
 
-  // Vẽ ảnh lên canvas để lấy ImageData
   const bitmap = await createImageBitmap(file);
   const canvas = document.createElement("canvas");
   canvas.width = bitmap.width; canvas.height = bitmap.height;
@@ -956,22 +960,57 @@ async function decodeWithZBar(file) {
   ctx.drawImage(bitmap, 0, 0);
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-  // Thử API scanImageData (phổ biến nhất)
+  // Thử các API có thể có
   let results = [];
-  if(typeof ZBar.scanImageData === "function") {
-    results = await ZBar.scanImageData(imageData);
-  } else if(typeof ZBar.default?.scanImageData === "function") {
-    results = await ZBar.default.scanImageData(imageData);
-  } else {
-    throw new Error("ZBar API không nhận ra");
-  }
+  const scanFn = ZBar.scanImageData || ZBar.default?.scanImageData
+              || ZBar.scan || ZBar.default?.scan;
+  if(typeof scanFn !== "function") throw new Error("ZBar API không tìm thấy");
+  results = await scanFn(imageData);
 
   if(!results || results.length === 0) throw new Error("Không tìm thấy mã");
-  // Ưu tiên EAN-13 / EAN-8 / Code128 trước QR
-  const preferred = results.find(r => /EAN|Code128|CODE-128|UPCA/i.test(r.typeName || "")) || results[0];
-  const value = typeof preferred.decode === "function" ? preferred.decode() : preferred.rawValue || preferred.data;
+  const preferred = results.find(r => /EAN|Code128|CODE.128|UPCA/i.test(r.typeName || r.type || "")) || results[0];
+  const value = typeof preferred.decode === "function"
+    ? preferred.decode()
+    : (preferred.rawValue || preferred.data || preferred.value || "");
   if(!value) throw new Error("Không đọc được giá trị");
   return String(value).trim();
+}
+
+/* ── Lớp 3: Html5Qrcode (QR + một số barcode) ──
+   ── Lớp 4: Quagga2 — chuyên 1D barcode (EAN-13/Code128) từ ảnh tĩnh ── */
+let _quaggaPromise = null;
+async function getQuagga() {
+  if(_quaggaPromise) return _quaggaPromise;
+  _quaggaPromise = new Promise(resolve => {
+    if(window.Quagga) { resolve(window.Quagga); return; }
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/lib/quagga.min.js";
+    s.onload  = () => resolve(window.Quagga || null);
+    s.onerror = () => resolve(null);
+    document.head.appendChild(s);
+  });
+  return _quaggaPromise;
+}
+
+async function decodeWithQuagga(file) {
+  const Quagga = await getQuagga();
+  if(!Quagga) throw new Error("Quagga không tải được");
+  const url = URL.createObjectURL(file);
+  return new Promise((resolve, reject) => {
+    Quagga.decodeSingle({
+      src: url,
+      numOfWorkers: 0,
+      inputStream: { size: 1280 },
+      decoder: { readers: ["ean_reader","ean_8_reader","code_128_reader","upc_reader","upc_e_reader","code_39_reader"] }
+    }, result => {
+      URL.revokeObjectURL(url);
+      if(result && result.codeResult && result.codeResult.code) {
+        resolve(result.codeResult.code);
+      } else {
+        reject(new Error("Quagga không đọc được"));
+      }
+    });
+  });
 }
 
 async function decodeImageFile(file) {
@@ -987,15 +1026,13 @@ async function decodeImageFile(file) {
       const bitmap  = await createImageBitmap(small);
       const results = await det.detect(bitmap);
       if(results && results.length > 0) return results[0].rawValue;
-    } catch(e) { /* thử lớp 2 */ }
+    } catch(e) {}
   }
 
   // ── Lớp 2: ZBar WASM ──
-  try {
-    return await decodeWithZBar(small);
-  } catch(e) { /* thử lớp 3 */ }
+  try { return await decodeWithZBar(small); } catch(e) {}
 
-  // ── Lớp 3: Html5Qrcode (QR + một số barcode) ──
+  // ── Lớp 3: Html5Qrcode ──
   try {
     const tempDiv = document.createElement("div");
     tempDiv.id    = "_tmp" + Date.now();
@@ -1006,6 +1043,9 @@ async function decodeImageFile(file) {
     document.body.removeChild(tempDiv);
     return decoded;
   } catch(e) {}
+
+  // ── Lớp 4: Quagga2 ──
+  try { return await decodeWithQuagga(small); } catch(e) {}
 
   throw new Error("Không đọc được barcode");
 }
@@ -1734,6 +1774,12 @@ function bellClick(){
 
 /* ================= INIT ================= */
 document.addEventListener("DOMContentLoaded", () => {
+  /* Gán DOM refs sau khi HTML đã sẵn sàng */
+  sidebar  = document.getElementById("sidebar");
+  overlay  = document.getElementById("overlay");
+  mainApp  = document.getElementById("mainApp");
+  printApp = document.getElementById("printApp");
+
   setupIOSCapture();
 
   /* ═══ Cập nhật label nút scan theo platform ═══ */
@@ -1746,8 +1792,9 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll('[onclick="startPrintScan()"]').forEach(btn => {
       btn.innerHTML = '📸 Chụp';
     });
-    /* Pre-load ZBar WASM ngay khi vào app → lần quét đầu không phải chờ tải */
+    /* Pre-load ZBar WASM + Quagga2 ngay khi vào app → lần quét đầu không phải chờ tải */
     getZBar().catch(() => {});
+    getQuagga().catch(() => {});
   }
 
   autoCleanExpired();

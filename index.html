@@ -724,6 +724,9 @@ button:active{transform:scale(.97);opacity:.8}
 <!-- iOS barcode capture fallback -->
 <input type="file" accept="image/*" capture="environment" id="iosBarcodeInput" style="display:none">
 <input type="file" accept="image/*" capture="environment" id="iosPrintBarcodeInput" style="display:none">
+<div id="iosScanHint" class="hidden" style="font-size:12px;color:rgba(255,255,255,.5);text-align:center;padding:6px 16px;line-height:1.5;">
+  📱 Mở camera → giữ điện thoại thẳng, cách mã ~15cm, đủ sáng → chụp
+</div>
 <!-- TOAST -->
 <div id="toastBox" class="toast"></div>
 </div><!-- end outer padding -->
@@ -899,7 +902,48 @@ function autoCleanExpired(){
 /* ═══ iOS DETECTION ═══ */
 function isIOS(){ return /iPhone|iPad|iPod/i.test(navigator.userAgent); }
 
-/* ═══ iOS IMAGE CAPTURE SCAN ═══ */
+/* ═══ iOS IMAGE CAPTURE SCAN ═══
+   Chiến lược decode 3 lớp:
+   1. BarcodeDetector API (iOS 17.4+, Chrome Android) — nhanh nhất, hỗ trợ EAN-13
+   2. Html5Qrcode.scanFile() — fallback cho QR code
+   3. Báo lỗi rõ ràng nếu cả 2 fail
+   ═══════════════════════════════════════════════════ */
+
+async function decodeImageFile(file) {
+  // Tạo ImageBitmap từ file
+  let bitmap;
+  try { bitmap = await createImageBitmap(file); } catch(e) { bitmap = null; }
+
+  // ── Lớp 1: BarcodeDetector native (iOS 17.4+, Chrome 88+) ──
+  if(window.BarcodeDetector) {
+    try {
+      const formats = ["ean_13","ean_8","code_128","code_39","qr_code","upc_a","upc_e","itf","codabar"];
+      // Lọc chỉ formats được hỗ trợ
+      let supported = formats;
+      try { supported = await BarcodeDetector.getSupportedFormats(); } catch(e){}
+      const det     = new BarcodeDetector({ formats: supported });
+      const source  = bitmap || file;
+      const results = await det.detect(source);
+      if(results && results.length > 0) return results[0].rawValue;
+    } catch(e) { /* không hỗ trợ hoặc lỗi → thử lớp 2 */ }
+  }
+
+  // ── Lớp 2: Html5Qrcode scanFile (QR + barcode cơ bản) ──
+  try {
+    const tempDiv    = document.createElement("div");
+    tempDiv.id       = "_tmp" + Date.now();
+    tempDiv.style.display = "none";
+    document.body.appendChild(tempDiv);
+    const tmpQr  = new Html5Qrcode(tempDiv.id);
+    const decoded = await tmpQr.scanFile(file, false);
+    document.body.removeChild(tempDiv);
+    return decoded;
+  } catch(e) { /* fail → lớp 3 */ }
+
+  // ── Lớp 3: Không decode được ──
+  throw new Error("Không đọc được barcode");
+}
+
 function setupIOSCapture(){
   const mainInput  = document.getElementById("iosBarcodeInput");
   const printInput = document.getElementById("iosPrintBarcodeInput");
@@ -909,27 +953,13 @@ function setupIOSCapture(){
     const file = e.target.files[0];
     if(!file) return;
     mainInput.value = "";
+    showToast("⏳ Đang đọc mã...");
     try {
-      const img    = document.createElement("img");
-      const url    = URL.createObjectURL(file);
-      img.src      = url;
-      await new Promise(res => { img.onload = res; });
-      const canvas = document.createElement("canvas");
-      canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
-      canvas.getContext("2d").drawImage(img, 0, 0);
-      URL.revokeObjectURL(url);
-      // Dùng Html5Qrcode decode từ file
-      const tempDiv = document.createElement("div");
-      tempDiv.id    = "_iosTmp" + Date.now();
-      tempDiv.style.display = "none";
-      document.body.appendChild(tempDiv);
-      const tmpQr   = new Html5Qrcode(tempDiv.id);
-      const decoded = await tmpQr.scanFile(file, false);
-      document.body.removeChild(tempDiv);
+      const decoded = await decodeImageFile(file);
       document.getElementById("barcode").value = decoded;
-      showToast("✅ Đã quét: " + decoded);
+      showToast("✅ " + decoded);
     } catch(err) {
-      showToast("⚠️ Không đọc được barcode, thử chụp lại");
+      showToast("⚠️ Không đọc được — chụp thẳng vào mã, đủ sáng");
     }
   });
 
@@ -937,18 +967,13 @@ function setupIOSCapture(){
     const file = e.target.files[0];
     if(!file) return;
     printInput.value = "";
+    showToast("⏳ Đang đọc mã...");
     try {
-      const tempDiv = document.createElement("div");
-      tempDiv.id    = "_iosPrintTmp" + Date.now();
-      tempDiv.style.display = "none";
-      document.body.appendChild(tempDiv);
-      const tmpQr   = new Html5Qrcode(tempDiv.id);
-      const decoded = await tmpQr.scanFile(file, false);
-      document.body.removeChild(tempDiv);
+      const decoded = await decodeImageFile(file);
       addBarcode(decoded);
-      showToast("✅ Đã quét: " + decoded);
+      showToast("✅ " + decoded);
     } catch {
-      showToast("⚠️ Không đọc được barcode, thử chụp lại");
+      showToast("⚠️ Không đọc được — chụp thẳng vào mã, đủ sáng");
     }
   });
 }
@@ -956,7 +981,10 @@ function setupIOSCapture(){
 const scanConfig = { fps: 10, qrbox: 250 };
 
 async function startScan(){
-  if(isIOS()){ alert("⚠️ iPhone không hỗ trợ quét barcode.\nVui lòng nhập tay."); return; }
+  if(isIOS()){
+    document.getElementById("iosBarcodeInput").click();
+    return;
+  }
   if(isScanning) return;
   isScanning = true;
   if(qr){ try{ await qr.stop(); await qr.clear(); }catch(e){} qr = null; }
@@ -1637,6 +1665,19 @@ function bellClick(){
 
 /* ================= INIT ================= */
 setupIOSCapture();
+
+/* ═══ Cập nhật label nút scan theo platform ═══ */
+if(isIOS()){
+  const hint = document.getElementById("iosScanHint");
+  if(hint) hint.classList.remove("hidden");
+  document.querySelectorAll('[onclick="startScan()"]').forEach(btn => {
+    btn.innerHTML = '📸 Chụp mã';
+  });
+  document.querySelectorAll('[onclick="startPrintScan()"]').forEach(btn => {
+    btn.innerHTML = '📸 Chụp';
+  });
+}
+
 autoCleanExpired();
 renderHistory();
 renderOverview();

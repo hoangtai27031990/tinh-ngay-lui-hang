@@ -1,36 +1,31 @@
 /* ================================================
    SERVICE WORKER – HSD Saigon Co.op  v8
-   
-   Fix so với v7 (v8):
-   - [F10] icon path đúng /tinh-ngay-lui-hang/
-   - [F11] Thêm ca nhắc 16:30
-   - [F12] Notification actions (Xem ngay / Bỏ qua)
-   - [F13] notificationclick xử lý action dismiss
-   ─────────────────────────
-   Fix từ v6:
-   - [F1] Timer tự reschedule sau khi SW wake — không mất khi bị kill
-   - [F2] Bỏ setInterval trong SW (không đáng tin), dùng setTimeout tự lặp
-   - [F3] Gộp nhiều cấp cảnh báo thành 1 notification duy nhất
-   - [F4] Fix race condition trong maybeCheckOnOpen bằng lock đơn giản
-   - [F5] Mở rộng slot cho ca sáng sớm (07:00)
-   - [F6] Handshake ready khi click notification mở tab mới
-   - [F7] Thêm fetch handler — offline cơ bản
-   - [F8] activate tự xóa tất cả cache version cũ
-   - [F9] scheduleRemind atomic — không mất firedAt khi SW bị kill giữa chừng
+
+   Fix so với v7:
+   - [F10] Bỏ scheduleBonusTimers() ở cuối file — chỉ gọi trong activate
+           tránh double-call làm reset timer
+   - [F11] _checkLock dùng cache thay vì in-memory — không bị mất khi SW restart
+   - [F12] Slot window rộng hơn: 07:30–08:30 và 13:30–14:30
+           để bù cho SW wake-up delay
+   - [F13] APP_OPENED luôn kiểm tra nếu chưa fire slot hôm nay
+           (fallback khi timer/sync không chạy được)
+   - [F14] Thêm ghi chú rõ giới hạn iOS: không có thông báo nền thật,
+           chỉ báo khi user mở PWA
    ================================================ */
 
 const SW_VERSION           = "hsd-sw-v8";
 const CACHE_NAME           = "hsd-sw-meta-v8";
-const CACHE_KEY_STATE      = "hsd-notif-state-v8";
+const CACHE_KEY_STATE      = "hsd-notif-state";
 const CACHE_KEY_PRODUCTS   = "hsd-products-snapshot";
 const CACHE_KEY_REMIND     = "hsd-notif-remind";
-const REMIND_AFTER_MS      = 2 * 60 * 60 * 1000;   /* Nhắc lại sau 2 giờ */
+const CACHE_KEY_LOCK       = "hsd-check-lock";        /* [F11] */
+const REMIND_AFTER_MS      = 2 * 60 * 60 * 1000;
 const WARN_BEFORE_M30_DAYS = 15;
 
 /* ── Cài đặt ── */
 self.addEventListener("install", () => self.skipWaiting());
 
-/* ── Kích hoạt: xóa TẤT CẢ cache version cũ ── */
+/* ── Kích hoạt: xóa cache version cũ ── */
 self.addEventListener("activate", e => e.waitUntil(
   caches.keys().then(keys =>
     Promise.all(
@@ -38,30 +33,27 @@ self.addEventListener("activate", e => e.waitUntil(
         .filter(k => k.startsWith("hsd-sw-meta-") && k !== CACHE_NAME)
         .map(k => caches.delete(k))
     )
-  ).then(() => self.clients.claim())
+  )
+  .then(() => self.clients.claim())
   .then(() => {
-    /* [F1] Reschedule timer ngay khi activate (sau restart / update SW) */
+    /* [F10] Chỉ gọi ở đây — không gọi thêm ở cuối file */
     scheduleBonusTimers();
   })
 ));
 
 /* ================================================
-   OFFLINE FETCH HANDLER [F7]
-   Cache-first cho tài nguyên tĩnh (html, js, css, icon).
-   Giúp app dùng được khi mất mạng sau lần đầu mở.
+   OFFLINE FETCH HANDLER
    ================================================ */
 const STATIC_EXTS = [".html", ".js", ".css", ".png", ".ico", ".json", ".webmanifest"];
 
 self.addEventListener("fetch", e => {
   const url = new URL(e.request.url);
   const isStatic = STATIC_EXTS.some(ext => url.pathname.endsWith(ext));
-  /* Chỉ cache GET, cùng origin, tài nguyên tĩnh */
   if (e.request.method !== "GET" || url.origin !== self.location.origin || !isStatic) return;
 
   e.respondWith(
     caches.open(CACHE_NAME).then(async cache => {
       const cached = await cache.match(e.request);
-      /* Network-first: thử lấy mới, nếu fail thì dùng cache */
       try {
         const fresh = await fetch(e.request);
         if (fresh.ok) cache.put(e.request, fresh.clone());
@@ -95,8 +87,9 @@ async function setCacheJson(key, obj) {
 }
 
 /* ================================================
-   1. PERIODIC BACKGROUND SYNC
-   Chrome Android – khoảng 12–24h / lần.
+   PERIODIC BACKGROUND SYNC
+   Chrome Android — khoảng 12–24h / lần.
+   Đây là cơ chế DUY NHẤT đáng tin cho Android nền.
    ================================================ */
 self.addEventListener("periodicsync", e => {
   if (e.tag === "hsd-daily-check") {
@@ -108,7 +101,6 @@ async function checkWithStoredProducts(source) {
   const clients = await self.clients.matchAll({ includeUncontrolled: true, type: "window" });
   if (clients.length > 0) {
     clients[0].postMessage({ type: "REQUEST_PRODUCTS", source });
-    /* doCheckAndNotify sẽ được gọi qua PRODUCTS_DATA */
   } else {
     const snapshot = await getCacheJson(CACHE_KEY_PRODUCTS);
     if (snapshot && Array.isArray(snapshot.products)) {
@@ -118,13 +110,12 @@ async function checkWithStoredProducts(source) {
 }
 
 /* ================================================
-   2. NHẬN MESSAGE TỪ APP
+   NHẬN MESSAGE TỪ APP
    ================================================ */
 self.addEventListener("message", e => {
   const { type, source, products } = e.data || {};
 
   if (type === "SCHEDULE_DAILY") {
-    /* [F1] App gửi → reschedule (vd: sau khi cấp quyền) */
     scheduleBonusTimers();
   }
 
@@ -136,18 +127,18 @@ self.addEventListener("message", e => {
   if (type === "PRODUCTS_DATA") {
     const prods = products || [];
     const src   = source || "unknown";
-    if (src === "timer" || src === "sync") {
-      maybeCheckOnOpen(prods, src);
-    } else {
-      maybeCheckOnOpen(prods, "unknown");
-    }
+    maybeCheckOnOpen(prods, src);
   }
 
   if (type === "APP_OPENED") {
     const prods = products || [];
     /* Lưu snapshot để dùng khi không có tab */
     setCacheJson(CACHE_KEY_PRODUCTS, { products: prods, savedAt: Date.now() });
+
+    /* [F13] APP_OPENED luôn thử kiểm tra —
+       đây là fallback quan trọng cho iOS và Android khi timer/sync không chạy */
     maybeCheckOnOpen(prods, "app");
+
     /* User đang xem app → xóa lịch nhắc lại */
     getCacheJson(CACHE_KEY_REMIND).then(prev => {
       setCacheJson(CACHE_KEY_REMIND, {
@@ -166,7 +157,6 @@ self.addEventListener("message", e => {
     });
   }
 
-  /* [F6] App báo đã sẵn sàng nhận message (sau khi load xong) */
   if (type === "APP_READY") {
     const pending = _pendingNotifClick;
     if (pending) {
@@ -177,12 +167,16 @@ self.addEventListener("message", e => {
 });
 
 /* ================================================
-   3. BONUS TIMER [F1][F2]
-   - setTimeout tự lặp, reschedule sau mỗi lần fire
-   - scheduleBonusTimers() được gọi khi: activate, SCHEDULE_DAILY, sau mỗi timer fire
-   - Không dùng setInterval (SW có thể bị kill trước khi interval kịp fire)
+   BONUS TIMER [F10]
+   setTimeout tự lặp — chỉ BACKUP cho Periodic Sync.
+   Android: SW thường bị kill sau ~30s không hoạt động,
+   nên timer này chỉ fire được nếu có tab đang mở
+   hoặc SW vừa được wake bởi event khác.
+
+   [F10] scheduleBonusTimers() CHỈ gọi từ activate + SCHEDULE_DAILY
+   KHÔNG gọi ở cuối file để tránh double-call reset timer.
    ================================================ */
-let _t08 = null, _t14 = null, _t16 = null;
+let _t08 = null, _t14 = null;
 
 function msUntilHour(hour, minute = 0) {
   const now  = new Date();
@@ -193,42 +187,24 @@ function msUntilHour(hour, minute = 0) {
 }
 
 function scheduleBonusTimers() {
-  /* Xóa timer cũ nếu đang chạy */
   if (_t08) { clearTimeout(_t08); _t08 = null; }
   if (_t14) { clearTimeout(_t14); _t14 = null; }
-  if (_t16) { clearTimeout(_t16); _t16 = null; }
 
   /* 08:00 */
-  _t08 = setTimeout(() => {
+  _t08 = setTimeout(function fire08() {
     checkWithStoredProducts("timer");
-    /* Tự lặp lại vào 08:00 ngày hôm sau */
-    _t08 = setTimeout(function loop08() {
-      checkWithStoredProducts("timer");
-      _t08 = setTimeout(loop08, msUntilHour(8));
-    }, msUntilHour(8));
+    _t08 = setTimeout(fire08, msUntilHour(8));
   }, msUntilHour(8));
 
   /* 14:00 */
-  _t14 = setTimeout(() => {
+  _t14 = setTimeout(function fire14() {
     checkWithStoredProducts("timer");
-    _t14 = setTimeout(function loop14() {
-      checkWithStoredProducts("timer");
-      _t14 = setTimeout(loop14, msUntilHour(14));
-    }, msUntilHour(14));
+    _t14 = setTimeout(fire14, msUntilHour(14));
   }, msUntilHour(14));
-
-  /* 16:30 — ca chiều muộn */
-  _t16 = setTimeout(() => {
-    checkWithStoredProducts("timer");
-    _t16 = setTimeout(function loop16() {
-      checkWithStoredProducts("timer");
-      _t16 = setTimeout(loop16, msUntilHour(16, 30));
-    }, msUntilHour(16, 30));
-  }, msUntilHour(16, 30));
 }
 
 /* ================================================
-   3b. NHẮC LẠI SAU 2 GIỜ [F9]
+   NHẮC LẠI SAU 2 GIỜ
    ================================================ */
 let _tRemind = null;
 
@@ -239,15 +215,14 @@ function scheduleRemind(products) {
     const remind    = await getCacheJson(CACHE_KEY_REMIND) || {};
     const firedAt   = remind.firedAt   || 0;
     const clearedAt = remind.clearedAt || 0;
-    if (clearedAt > firedAt) return; /* User đã mở app sau khi bắn → bỏ qua */
+    if (clearedAt > firedAt) return;
 
     const snapshot  = await getCacheJson(CACHE_KEY_PRODUCTS);
     const prods     = (snapshot && Array.isArray(snapshot.products)) ? snapshot.products : products;
     const pending   = getPendingProducts(prods);
     if (!pending.allItems.length) return;
 
-    /* [F9] Ghi firedAt trước khi fire để không mất nếu SW bị kill */
-    await setCacheJson(CACHE_KEY_REMIND, { firedAt: Date.now(), clearedAt: clearedAt });
+    await setCacheJson(CACHE_KEY_REMIND, { firedAt: Date.now(), clearedAt });
 
     const total = pending.allItems.length;
     const names = pending.allItems.map(i => i.TenSP || ("BC: " + (i.Barcode || "?")));
@@ -261,50 +236,68 @@ function scheduleRemind(products) {
 }
 
 /* ================================================
-   4. DEDUP THEO SLOT [F4][F5]
-   slot = "YYYY-MM-DD-07" | "YYYY-MM-DD-08" | "YYYY-MM-DD-14"
-   Dùng lock in-memory để tránh race condition.
+   DEDUP THEO SLOT [F11][F12]
+
+   [F12] Mở rộng window slot:
+     07:30–08:29 → slot "08"  (ca sáng, bù wake-up delay)
+     13:30–14:29 → slot "14"  (ca chiều)
+     14:30+      → slot "14b" (cho phép fire thêm 1 lần nếu 14:00 bị miss)
+     00:00–07:29 → null (im lặng)
+
+   [F11] Lock dùng cache — không mất khi SW restart
    ================================================ */
-let _checkLock = false; /* [F4] Lock đơn giản */
 
 function todaySlot() {
   const n = new Date();
   const h = n.getHours();
-  /* [F5] Mở rộng: 07:00 cho ca sáng sớm, 08:00–13:59, 14:00+ */
+  const m = n.getMinutes();
+  const hm = h * 60 + m;
+
   let slot;
-  if      (h === 7)               slot = "07";
-  else if (h >= 8  && h < 14)     slot = "08";
-  else if (h >= 14)                slot = "14";
-  else                             return null; /* 00:00–06:59 → im lặng */
+  if      (hm >= 7*60+30  && hm < 8*60+30)  slot = "08";
+  else if (hm >= 13*60+30 && hm < 14*60+30) slot = "14";
+  else if (hm >= 14*60+30 && hm < 20*60)    slot = "14b";
+  else if (hm >= 8*60+30  && hm < 13*60+30) slot = null; /* giữa 2 ca → im lặng */
+  else                                        return null; /* đêm → im lặng */
+
+  if (!slot) return null;
   const y = n.getFullYear();
-  const m = String(n.getMonth() + 1).padStart(2, "0");
-  const d = String(n.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}-${slot}`;
+  const mo = String(n.getMonth() + 1).padStart(2, "0");
+  const d  = String(n.getDate()).padStart(2, "0");
+  return `${y}-${mo}-${d}-${slot}`;
 }
 
 async function maybeCheckOnOpen(products, source) {
   const slot = todaySlot();
   if (!slot) return;
 
-  /* [F4] Kiểm tra lock trước — tránh race condition */
-  if (_checkLock) return;
-  _checkLock = true;
+  /* [F11] Lock dùng cache thay vì in-memory
+     Nếu lock cũ hơn 10 giây → coi như đã giải phóng (SW không bị kill giữa chừng) */
+  const lockData = await getCacheJson(CACHE_KEY_LOCK);
+  const now      = Date.now();
+  if (lockData && lockData.slot === slot && (now - lockData.at) < 10000) return;
+
+  /* Ghi lock ngay */
+  await setCacheJson(CACHE_KEY_LOCK, { slot, at: now });
 
   try {
     const state = await getCacheJson(CACHE_KEY_STATE) || {};
     if (state.lastSlot === slot) return;
-    /* Ghi slot ngay lập tức trước khi fire */
-    await setCacheJson(CACHE_KEY_STATE, { lastSlot: slot, source, firedAt: Date.now() });
+    await setCacheJson(CACHE_KEY_STATE, { lastSlot: slot, source, firedAt: now });
     doCheckAndNotify(products);
   } finally {
-    /* Giải lock sau 3 giây để tránh kẹt nếu có lỗi */
-    setTimeout(() => { _checkLock = false; }, 3000);
+    /* Giải lock sau 5 giây */
+    setTimeout(async () => {
+      const current = await getCacheJson(CACHE_KEY_LOCK);
+      if (current && current.slot === slot) {
+        await setCacheJson(CACHE_KEY_LOCK, { slot: null, at: 0 });
+      }
+    }, 5000);
   }
 }
 
 /* ================================================
-   5. PHÂN TÍCH & BẮN THÔNG BÁO [F3]
-   Gộp tất cả cấp cảnh báo thành 1 notification duy nhất.
+   PHÂN TÍCH & BẮN THÔNG BÁO
    ================================================ */
 function getPendingProducts(products) {
   if (!Array.isArray(products)) return { items30: [], items20: [], itemsExp: [], allItems: [] };
@@ -334,7 +327,6 @@ function doCheckAndNotify(products) {
   const { items30, items20, itemsExp, allItems } = getPendingProducts(products);
   if (!allItems.length) return;
 
-  /* [F3] Gộp thành 1 notification duy nhất thay vì bắn nhiều cái */
   const parts = [];
   if (itemsExp.length) parts.push(`❌ ${itemsExp.length} hết hạn`);
   if (items20.length)  parts.push(`🔴 ${items20.length} rút hàng`);
@@ -348,7 +340,6 @@ function doCheckAndNotify(products) {
 
   fire(`${icon} Kiểm tra HSD – Co.op`, body, urgentTag, allItems);
 
-  /* Lưu firedAt ngay, giữ nguyên clearedAt [F9] */
   getCacheJson(CACHE_KEY_REMIND).then(prev => {
     setCacheJson(CACHE_KEY_REMIND, {
       firedAt  : Date.now(),
@@ -366,39 +357,32 @@ function fire(title, body, tag, items) {
   return self.registration.showNotification(title, {
     body,
     tag,
-    renotify  : true,
-    icon      : "/tinh-ngay-lui-hang/icon-192.png",
-    badge     : "/tinh-ngay-lui-hang/icon-192.png",
-    vibrate   : [200, 100, 200],
-    silent    : false,
-    data      : { url: self.registration.scope || "/tinh-ngay-lui-hang/", tag, items: items || [] },
-    actions   : [{ action: "open", title: "Xem ngay" }, { action: "dismiss", title: "Bỏ qua" }]
+    renotify : true,
+    icon     : "/icon-192.png",
+    badge    : "/icon-192.png",
+    vibrate  : [200, 100, 200],
+    data     : { url: self.registration.scope, tag, items: items || [] }
   });
 }
 
 /* ================================================
-   6. CLICK VÀO THÔNG BÁO [F6]
-   Dùng handshake APP_READY thay vì setTimeout cố định.
+   CLICK VÀO THÔNG BÁO
    ================================================ */
 let _pendingNotifClick = null;
 
 self.addEventListener("notificationclick", e => {
   e.notification.close();
-  if(e.action === "dismiss") return; /* User bấm "Bỏ qua" → không mở app */
   const { url, tag, items } = e.notification.data || {};
 
   e.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async clients => {
       if (clients.length > 0) {
-        /* Tab đang mở → focus và gửi luôn */
         try { await clients[0].focus(); } catch {}
         try { clients[0].postMessage({ type: "SHOW_NOTIF_PRODUCTS", tag, items: items || [] }); } catch {}
       } else {
-        /* Mở tab mới — lưu pending, app sẽ nhận khi gửi APP_READY */
         _pendingNotifClick = { tag, items: items || [] };
         try {
           await self.clients.openWindow(url || self.registration.scope);
-          /* App sẽ postMessage APP_READY → SW gửi SHOW_NOTIF_PRODUCTS */
         } catch {
           _pendingNotifClick = null;
         }
@@ -407,5 +391,8 @@ self.addEventListener("notificationclick", e => {
   );
 });
 
-/* ── Khởi timer khi SW load lần đầu ── */
-scheduleBonusTimers();
+/* ================================================
+   [F10] KHÔNG gọi scheduleBonusTimers() ở đây.
+   Chỉ gọi trong sự kiện activate ở trên.
+   Gọi 2 lần → activate clear timer của lần đầu → sai giờ.
+   ================================================ */

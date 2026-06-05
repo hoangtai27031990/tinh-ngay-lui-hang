@@ -904,75 +904,95 @@ function isIOS(){ return /iPhone|iPad|iPod/i.test(navigator.userAgent); }
 
 /* ═══ iOS IMAGE CAPTURE SCAN ═══
    Chiến lược decode 3 lớp:
-   1. BarcodeDetector API (iOS 17.4+) — native, nhanh
-   2. Claude Vision API — AI đọc ảnh, chính xác nhất cho EAN-13
-   3. Html5Qrcode.scanFile() — fallback QR
+   1. BarcodeDetector API (iOS 17.4+, Safari) — native, nhanh nhất
+   2. ZBar WASM — đọc EAN-13/EAN-8/Code128 cực tốt, chạy offline
+   3. Html5Qrcode.scanFile() — fallback cuối cho QR code
    ═══════════════════════════════════════════════════ */
 
-/* Chuyển File → base64 string */
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload  = () => resolve(reader.result.split(",")[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+/* ── Resize ảnh về tối đa 1280px trước khi decode ──
+   Camera iPhone chụp 12-48MP → nếu không resize sẽ lag / crash */
+async function resizeImageFile(file, maxPx = 1280) {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale  = Math.min(1, maxPx / Math.max(bitmap.width, bitmap.height));
+    const w = Math.round(bitmap.width  * scale);
+    const h = Math.round(bitmap.height * scale);
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    canvas.getContext("2d").drawImage(bitmap, 0, 0, w, h);
+    return await new Promise(res =>
+      canvas.toBlob(blob => res(new File([blob], file.name, { type: "image/jpeg" })), "image/jpeg", 0.92)
+    );
+  } catch(e) {
+    return file; // nếu resize lỗi, dùng file gốc
+  }
 }
 
-/* Lớp 2: Claude Vision đọc barcode từ ảnh */
-async function decodeWithClaude(file) {
-  const base64 = await fileToBase64(file);
-  const mediaType = file.type || "image/jpeg";
-
-  const resp = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 100,
-      messages: [{
-        role: "user",
-        content: [
-          {
-            type: "image",
-            source: { type: "base64", media_type: mediaType, data: base64 }
-          },
-          {
-            type: "text",
-            text: "This image contains a barcode (EAN-13, EAN-8, Code-128, or similar). Read the barcode and reply with ONLY the numeric/alphanumeric code, nothing else. No explanation, no punctuation, just the raw barcode value."
-          }
-        ]
-      }]
-    })
+/* ── Lớp 2: ZBar WASM (EAN-13 / EAN-8 / Code128 / QR) ──
+   Tải lazy từ CDN, cache vào biến zbarModule sau lần đầu */
+let _zbarPromise = null;
+async function getZBar() {
+  if(_zbarPromise) return _zbarPromise;
+  _zbarPromise = new Promise((resolve, reject) => {
+    if(window.ZBar) { resolve(window.ZBar); return; }
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.10.1/dist/main.js";
+    s.onload  = () => resolve(window.ZBar || window.zbar || window["zbar-wasm"]);
+    s.onerror = reject;
+    document.head.appendChild(s);
   });
+  return _zbarPromise;
+}
 
-  if(!resp.ok) throw new Error("Claude API error: " + resp.status);
-  const data = await resp.json();
-  const text = (data.content || []).map(b => b.text || "").join("").trim();
-  // Lấy chuỗi số liên tục dài nhất (loại bỏ text dư)
-  const match = text.match(/\d[\d\s\-]{5,20}\d/);
-  const clean = match ? match[0].replace(/[\s\-]/g,"") : text.replace(/\D/g,"");
-  if(!clean || clean.length < 6) throw new Error("Không tìm thấy mã");
-  return clean;
+async function decodeWithZBar(file) {
+  const ZBar = await getZBar();
+  if(!ZBar) throw new Error("ZBar không tải được");
+
+  // Vẽ ảnh lên canvas để lấy ImageData
+  const bitmap = await createImageBitmap(file);
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width; canvas.height = bitmap.height;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(bitmap, 0, 0);
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+  // Thử API scanImageData (phổ biến nhất)
+  let results = [];
+  if(typeof ZBar.scanImageData === "function") {
+    results = await ZBar.scanImageData(imageData);
+  } else if(typeof ZBar.default?.scanImageData === "function") {
+    results = await ZBar.default.scanImageData(imageData);
+  } else {
+    throw new Error("ZBar API không nhận ra");
+  }
+
+  if(!results || results.length === 0) throw new Error("Không tìm thấy mã");
+  // Ưu tiên EAN-13 / EAN-8 / Code128 trước QR
+  const preferred = results.find(r => /EAN|Code128|CODE-128|UPCA/i.test(r.typeName || "")) || results[0];
+  const value = typeof preferred.decode === "function" ? preferred.decode() : preferred.rawValue || preferred.data;
+  if(!value) throw new Error("Không đọc được giá trị");
+  return String(value).trim();
 }
 
 async function decodeImageFile(file) {
-  // ── Lớp 1: BarcodeDetector native (iOS 17.4+, Chrome 88+) ──
+  const small = await resizeImageFile(file);
+
+  // ── Lớp 1: BarcodeDetector native (iOS 17.4+ Safari, Chrome 88+) ──
   if(window.BarcodeDetector) {
     try {
       const formats = ["ean_13","ean_8","code_128","code_39","qr_code","upc_a","upc_e","itf","codabar"];
       let supported = formats;
       try { supported = await BarcodeDetector.getSupportedFormats(); } catch(e){}
       const det     = new BarcodeDetector({ formats: supported });
-      const bitmap  = await createImageBitmap(file);
+      const bitmap  = await createImageBitmap(small);
       const results = await det.detect(bitmap);
       if(results && results.length > 0) return results[0].rawValue;
     } catch(e) { /* thử lớp 2 */ }
   }
 
-  // ── Lớp 2: Claude Vision API ──
+  // ── Lớp 2: ZBar WASM ──
   try {
-    return await decodeWithClaude(file);
+    return await decodeWithZBar(small);
   } catch(e) { /* thử lớp 3 */ }
 
   // ── Lớp 3: Html5Qrcode (QR + một số barcode) ──
@@ -982,7 +1002,7 @@ async function decodeImageFile(file) {
     tempDiv.style.display = "none";
     document.body.appendChild(tempDiv);
     const tmpQr   = new Html5Qrcode(tempDiv.id);
-    const decoded = await tmpQr.scanFile(file, false);
+    const decoded = await tmpQr.scanFile(small, false);
     document.body.removeChild(tempDiv);
     return decoded;
   } catch(e) {}
@@ -1005,7 +1025,7 @@ function setupIOSCapture(){
       document.getElementById("barcode").value = decoded;
       showToast("✅ " + decoded);
     } catch(err) {
-      showToast("⚠️ Không đọc được. Chụp gần hơn, đủ sáng, giữ thẳng");
+      showToast("⚠️ Không đọc được. Chụp gần hơn, đủ sáng, giữ thẳng mã vạch");
     }
   });
 
@@ -1019,7 +1039,7 @@ function setupIOSCapture(){
       addBarcode(decoded);
       showToast("✅ " + decoded);
     } catch {
-      showToast("⚠️ Không đọc được. Chụp gần hơn, đủ sáng, giữ thẳng");
+      showToast("⚠️ Không đọc được. Chụp gần hơn, đủ sáng, giữ thẳng mã vạch");
     }
   });
 }
@@ -1713,26 +1733,30 @@ function bellClick(){
 }
 
 /* ================= INIT ================= */
-setupIOSCapture();
+document.addEventListener("DOMContentLoaded", () => {
+  setupIOSCapture();
 
-/* ═══ Cập nhật label nút scan theo platform ═══ */
-if(isIOS()){
-  const hint = document.getElementById("iosScanHint");
-  if(hint) hint.classList.remove("hidden");
-  document.querySelectorAll('[onclick="startScan()"]').forEach(btn => {
-    btn.innerHTML = '📸 Chụp mã';
-  });
-  document.querySelectorAll('[onclick="startPrintScan()"]').forEach(btn => {
-    btn.innerHTML = '📸 Chụp';
-  });
-}
+  /* ═══ Cập nhật label nút scan theo platform ═══ */
+  if(isIOS()){
+    const hint = document.getElementById("iosScanHint");
+    if(hint) hint.classList.remove("hidden");
+    document.querySelectorAll('[onclick="startScan()"]').forEach(btn => {
+      btn.innerHTML = '📸 Chụp mã';
+    });
+    document.querySelectorAll('[onclick="startPrintScan()"]').forEach(btn => {
+      btn.innerHTML = '📸 Chụp';
+    });
+    /* Pre-load ZBar WASM ngay khi vào app → lần quét đầu không phải chờ tải */
+    getZBar().catch(() => {});
+  }
 
-autoCleanExpired();
-renderHistory();
-renderOverview();
-renderPrint();
-checkStoredProducts();
-initServiceWorker();
+  autoCleanExpired();
+  renderHistory();
+  renderOverview();
+  renderPrint();
+  checkStoredProducts();
+  initServiceWorker();
+});
 </script>
 </body>
 </html>

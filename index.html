@@ -588,7 +588,7 @@ button:active{transform:scale(.97);opacity:.8}
   <label class="font-semibold">Barcode sản phẩm</label>
   <div class="flex gap-2">
     <input id="barcode" class="border p-2 rounded w-full" style="flex: 1;">
-    <button onclick="startScan()" class="btn-primary btn-inline" style="flex-shrink:0;border-radius:10px;">📷 Quét</button>
+    <button id="scanBtn" onclick="startScan()" class="btn-primary btn-inline" style="flex-shrink:0;border-radius:10px;">📷 Quét</button>
   </div>
 
   <div id="reader" class="hidden"></div>
@@ -711,7 +711,7 @@ button:active{transform:scale(.97);opacity:.8}
     <div class="glass" style="border-radius:16px;padding:18px;">
       <div class="section-title">In bảng giá quầy</div>
       <div style="display:flex;gap:8px;margin-bottom:12px;">
-        <button onclick="startPrintScan()" class="btn-primary" style="flex:1;">📷 Quét</button>
+        <button id="printScanBtn" onclick="startPrintScan()" class="btn-primary" style="flex:1;">📷 Quét</button>
         <button onclick="exportText()" class="btn-glass-dark" style="flex:1;">⬇ Xuất TXT</button>
         <button onclick="clearPrintHistory()" class="btn-glass-danger" style="flex:0 0 52px;">🗑</button>
       </div>
@@ -1782,19 +1782,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   setupIOSCapture();
 
-  /* ═══ Cập nhật label nút scan theo platform ═══ */
+  /* ═══ Khoá quét mã trên iOS ═══ */
   if(isIOS()){
+    // Ẩn nút Quét trên cả 2 tab
+    const scanBtn      = document.getElementById("scanBtn");
+    const printScanBtn = document.getElementById("printScanBtn");
+    if(scanBtn)      scanBtn.style.display      = "none";
+    if(printScanBtn) printScanBtn.style.display = "none";
+    // Ẩn hint và input file
     const hint = document.getElementById("iosScanHint");
-    if(hint) hint.classList.remove("hidden");
-    document.querySelectorAll('[onclick="startScan()"]').forEach(btn => {
-      btn.innerHTML = '📸 Chụp mã';
-    });
-    document.querySelectorAll('[onclick="startPrintScan()"]').forEach(btn => {
-      btn.innerHTML = '📸 Chụp';
-    });
-    /* Pre-load ZBar WASM + Quagga2 ngay khi vào app → lần quét đầu không phải chờ tải */
-    getZBar().catch(() => {});
-    getQuagga().catch(() => {});
+    if(hint) hint.style.display = "none";
   }
 
   autoCleanExpired();

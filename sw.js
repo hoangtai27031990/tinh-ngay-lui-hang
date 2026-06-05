@@ -1,7 +1,13 @@
 /* ================================================
-   SERVICE WORKER – HSD Saigon Co.op  v7
+   SERVICE WORKER – HSD Saigon Co.op  v8
    
-   Fix so với v6:
+   Fix so với v7 (v8):
+   - [F10] icon path đúng /tinh-ngay-lui-hang/
+   - [F11] Thêm ca nhắc 16:30
+   - [F12] Notification actions (Xem ngay / Bỏ qua)
+   - [F13] notificationclick xử lý action dismiss
+   ─────────────────────────
+   Fix từ v6:
    - [F1] Timer tự reschedule sau khi SW wake — không mất khi bị kill
    - [F2] Bỏ setInterval trong SW (không đáng tin), dùng setTimeout tự lặp
    - [F3] Gộp nhiều cấp cảnh báo thành 1 notification duy nhất
@@ -13,9 +19,9 @@
    - [F9] scheduleRemind atomic — không mất firedAt khi SW bị kill giữa chừng
    ================================================ */
 
-const SW_VERSION           = "hsd-sw-v7";
-const CACHE_NAME           = "hsd-sw-meta-v7";
-const CACHE_KEY_STATE      = "hsd-notif-state";
+const SW_VERSION           = "hsd-sw-v8";
+const CACHE_NAME           = "hsd-sw-meta-v8";
+const CACHE_KEY_STATE      = "hsd-notif-state-v8";
 const CACHE_KEY_PRODUCTS   = "hsd-products-snapshot";
 const CACHE_KEY_REMIND     = "hsd-notif-remind";
 const REMIND_AFTER_MS      = 2 * 60 * 60 * 1000;   /* Nhắc lại sau 2 giờ */
@@ -176,7 +182,7 @@ self.addEventListener("message", e => {
    - scheduleBonusTimers() được gọi khi: activate, SCHEDULE_DAILY, sau mỗi timer fire
    - Không dùng setInterval (SW có thể bị kill trước khi interval kịp fire)
    ================================================ */
-let _t08 = null, _t14 = null;
+let _t08 = null, _t14 = null, _t16 = null;
 
 function msUntilHour(hour, minute = 0) {
   const now  = new Date();
@@ -190,6 +196,7 @@ function scheduleBonusTimers() {
   /* Xóa timer cũ nếu đang chạy */
   if (_t08) { clearTimeout(_t08); _t08 = null; }
   if (_t14) { clearTimeout(_t14); _t14 = null; }
+  if (_t16) { clearTimeout(_t16); _t16 = null; }
 
   /* 08:00 */
   _t08 = setTimeout(() => {
@@ -209,6 +216,15 @@ function scheduleBonusTimers() {
       _t14 = setTimeout(loop14, msUntilHour(14));
     }, msUntilHour(14));
   }, msUntilHour(14));
+
+  /* 16:30 — ca chiều muộn */
+  _t16 = setTimeout(() => {
+    checkWithStoredProducts("timer");
+    _t16 = setTimeout(function loop16() {
+      checkWithStoredProducts("timer");
+      _t16 = setTimeout(loop16, msUntilHour(16, 30));
+    }, msUntilHour(16, 30));
+  }, msUntilHour(16, 30));
 }
 
 /* ================================================
@@ -350,11 +366,13 @@ function fire(title, body, tag, items) {
   return self.registration.showNotification(title, {
     body,
     tag,
-    renotify : true,
-    icon     : "/icon-192.png",
-    badge    : "/icon-192.png",
-    vibrate  : [200, 100, 200],
-    data     : { url: self.registration.scope, tag, items: items || [] }
+    renotify  : true,
+    icon      : "/tinh-ngay-lui-hang/icon-192.png",
+    badge     : "/tinh-ngay-lui-hang/icon-192.png",
+    vibrate   : [200, 100, 200],
+    silent    : false,
+    data      : { url: self.registration.scope || "/tinh-ngay-lui-hang/", tag, items: items || [] },
+    actions   : [{ action: "open", title: "Xem ngay" }, { action: "dismiss", title: "Bỏ qua" }]
   });
 }
 
@@ -366,6 +384,7 @@ let _pendingNotifClick = null;
 
 self.addEventListener("notificationclick", e => {
   e.notification.close();
+  if(e.action === "dismiss") return; /* User bấm "Bỏ qua" → không mở app */
   const { url, tag, items } = e.notification.data || {};
 
   e.waitUntil(

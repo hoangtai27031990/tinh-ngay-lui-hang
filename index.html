@@ -904,43 +904,89 @@ function isIOS(){ return /iPhone|iPad|iPod/i.test(navigator.userAgent); }
 
 /* ═══ iOS IMAGE CAPTURE SCAN ═══
    Chiến lược decode 3 lớp:
-   1. BarcodeDetector API (iOS 17.4+, Chrome Android) — nhanh nhất, hỗ trợ EAN-13
-   2. Html5Qrcode.scanFile() — fallback cho QR code
-   3. Báo lỗi rõ ràng nếu cả 2 fail
+   1. BarcodeDetector API (iOS 17.4+) — native, nhanh
+   2. Claude Vision API — AI đọc ảnh, chính xác nhất cho EAN-13
+   3. Html5Qrcode.scanFile() — fallback QR
    ═══════════════════════════════════════════════════ */
 
-async function decodeImageFile(file) {
-  // Tạo ImageBitmap từ file
-  let bitmap;
-  try { bitmap = await createImageBitmap(file); } catch(e) { bitmap = null; }
+/* Chuyển File → base64 string */
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
+/* Lớp 2: Claude Vision đọc barcode từ ảnh */
+async function decodeWithClaude(file) {
+  const base64 = await fileToBase64(file);
+  const mediaType = file.type || "image/jpeg";
+
+  const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 100,
+      messages: [{
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: { type: "base64", media_type: mediaType, data: base64 }
+          },
+          {
+            type: "text",
+            text: "This image contains a barcode (EAN-13, EAN-8, Code-128, or similar). Read the barcode and reply with ONLY the numeric/alphanumeric code, nothing else. No explanation, no punctuation, just the raw barcode value."
+          }
+        ]
+      }]
+    })
+  });
+
+  if(!resp.ok) throw new Error("Claude API error: " + resp.status);
+  const data = await resp.json();
+  const text = (data.content || []).map(b => b.text || "").join("").trim();
+  // Lấy chuỗi số liên tục dài nhất (loại bỏ text dư)
+  const match = text.match(/\d[\d\s\-]{5,20}\d/);
+  const clean = match ? match[0].replace(/[\s\-]/g,"") : text.replace(/\D/g,"");
+  if(!clean || clean.length < 6) throw new Error("Không tìm thấy mã");
+  return clean;
+}
+
+async function decodeImageFile(file) {
   // ── Lớp 1: BarcodeDetector native (iOS 17.4+, Chrome 88+) ──
   if(window.BarcodeDetector) {
     try {
       const formats = ["ean_13","ean_8","code_128","code_39","qr_code","upc_a","upc_e","itf","codabar"];
-      // Lọc chỉ formats được hỗ trợ
       let supported = formats;
       try { supported = await BarcodeDetector.getSupportedFormats(); } catch(e){}
       const det     = new BarcodeDetector({ formats: supported });
-      const source  = bitmap || file;
-      const results = await det.detect(source);
+      const bitmap  = await createImageBitmap(file);
+      const results = await det.detect(bitmap);
       if(results && results.length > 0) return results[0].rawValue;
-    } catch(e) { /* không hỗ trợ hoặc lỗi → thử lớp 2 */ }
+    } catch(e) { /* thử lớp 2 */ }
   }
 
-  // ── Lớp 2: Html5Qrcode scanFile (QR + barcode cơ bản) ──
+  // ── Lớp 2: Claude Vision API ──
   try {
-    const tempDiv    = document.createElement("div");
-    tempDiv.id       = "_tmp" + Date.now();
+    return await decodeWithClaude(file);
+  } catch(e) { /* thử lớp 3 */ }
+
+  // ── Lớp 3: Html5Qrcode (QR + một số barcode) ──
+  try {
+    const tempDiv = document.createElement("div");
+    tempDiv.id    = "_tmp" + Date.now();
     tempDiv.style.display = "none";
     document.body.appendChild(tempDiv);
-    const tmpQr  = new Html5Qrcode(tempDiv.id);
+    const tmpQr   = new Html5Qrcode(tempDiv.id);
     const decoded = await tmpQr.scanFile(file, false);
     document.body.removeChild(tempDiv);
     return decoded;
-  } catch(e) { /* fail → lớp 3 */ }
+  } catch(e) {}
 
-  // ── Lớp 3: Không decode được ──
   throw new Error("Không đọc được barcode");
 }
 
@@ -953,13 +999,13 @@ function setupIOSCapture(){
     const file = e.target.files[0];
     if(!file) return;
     mainInput.value = "";
-    showToast("⏳ Đang đọc mã...");
+    showToastLoading("⏳ Đang nhận diện mã vạch...");
     try {
       const decoded = await decodeImageFile(file);
       document.getElementById("barcode").value = decoded;
       showToast("✅ " + decoded);
     } catch(err) {
-      showToast("⚠️ Không đọc được — chụp thẳng vào mã, đủ sáng");
+      showToast("⚠️ Không đọc được. Chụp gần hơn, đủ sáng, giữ thẳng");
     }
   });
 
@@ -967,13 +1013,13 @@ function setupIOSCapture(){
     const file = e.target.files[0];
     if(!file) return;
     printInput.value = "";
-    showToast("⏳ Đang đọc mã...");
+    showToastLoading("⏳ Đang nhận diện mã vạch...");
     try {
       const decoded = await decodeImageFile(file);
       addBarcode(decoded);
       showToast("✅ " + decoded);
     } catch {
-      showToast("⚠️ Không đọc được — chụp thẳng vào mã, đủ sáng");
+      showToast("⚠️ Không đọc được. Chụp gần hơn, đủ sáng, giữ thẳng");
     }
   });
 }
@@ -1511,13 +1557,16 @@ function exportText(){
 }
 
 /* ================= TOAST ================= */
-function showToast(message = "Đã xử lý"){
+function showToast(message = "Đã xử lý", duration = 2500){
   const toast = document.getElementById("toastBox");
   if(!toast) return;
   if(toastTimer) clearTimeout(toastTimer);
   toast.textContent = message;
   toast.classList.add("show");
-  toastTimer = setTimeout(() => { toast.classList.remove("show"); toastTimer = null; }, 2500);
+  toastTimer = setTimeout(() => { toast.classList.remove("show"); toastTimer = null; }, duration);
+}
+function showToastLoading(message){
+  showToast(message, 30000); // giữ cho đến khi toast khác ghi đè
 }
 
 /* ================= SERVICE WORKER ================= */

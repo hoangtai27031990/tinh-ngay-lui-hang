@@ -1782,16 +1782,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
   setupIOSCapture();
 
-  /* ═══ Khoá quét mã trên iOS ═══ */
+  /* ═══ iOS: tab tính date → chụp mã; tab in bảng giá → ẩn nút ═══ */
   if(isIOS()){
-    // Ẩn nút Quét trên cả 2 tab
-    const scanBtn      = document.getElementById("scanBtn");
-    const printScanBtn = document.getElementById("printScanBtn");
-    if(scanBtn)      scanBtn.style.display      = "none";
-    if(printScanBtn) printScanBtn.style.display = "none";
-    // Ẩn hint và input file
+    // Tab tính date: đổi label nút, hiện hint hướng dẫn chụp
+    const scanBtn = document.getElementById("scanBtn");
+    if(scanBtn) scanBtn.textContent = "📷 Chụp mã";
     const hint = document.getElementById("iosScanHint");
-    if(hint) hint.style.display = "none";
+    if(hint){ hint.classList.remove("hidden"); hint.style.display = "block"; }
+
+    // Tab in bảng giá: ẩn nút quét (không hỗ trợ trên iOS)
+    const printScanBtn = document.getElementById("printScanBtn");
+    if(printScanBtn) printScanBtn.style.display = "none";
   }
 
   autoCleanExpired();

@@ -573,6 +573,7 @@ button:active{transform:scale(.97);opacity:.8}
   </div>
   <button onclick="showMain()">📦&nbsp; Quản lý HSD</button>
   <button onclick="showPrint()">🖨&nbsp; In bảng giá quầy</button>
+  <button onclick="showImport()">📋&nbsp; Kiểm tra nhập hàng</button>
   <div style="height:1px;background:rgba(255,255,255,.07);"></div>
   <button onclick="testNotification();toggleMenu()" style="color:rgba(96,165,250,.9);font-size:14px;">📨&nbsp; Test thông báo</button>
   <button onclick="resetNotifAndAsk();toggleMenu()" style="color:rgba(251,191,36,.9);font-size:14px;">🔔&nbsp; Bật lại thông báo</button>
@@ -763,6 +764,84 @@ button:active{transform:scale(.97);opacity:.8}
   </div>
 </div>
 
+<!-- ================= IMPORT APP ================= -->
+<div id="importApp" class="hidden" style="margin-bottom:80px;">
+  <div class="section">
+    <div class="glass" style="border-radius:16px;padding:18px;">
+      <div class="section-title">Kiểm tra nhập hàng</div>
+      <p style="font-size:13px;color:var(--t2);margin-bottom:14px;line-height:1.6;">
+        Điều kiện nhận hàng: <b style="color:#fff;">HSD còn ≥ 70%</b> thời gian sử dụng tính từ NSX.
+      </p>
+
+      <label class="font-semibold">Chọn loại nhập</label>
+      <select id="importMode" onchange="changeImportMode()" style="margin-bottom:14px;">
+        <option value="full">Có cả NSX &amp; HSD</option>
+        <option value="nsxPeriod">Chỉ có NSX + thời hạn sử dụng</option>
+        <option value="hsdOnly">Chỉ có HSD + thời hạn sử dụng</option>
+      </select>
+
+      <!-- NSX block -->
+      <div id="imp-nsxBlock">
+        <label class="font-semibold">Ngày sản xuất (NSX)</label>
+        <div class="date-wrap" style="margin-bottom:12px;">
+          <input type="text" id="imp-nsxText" class="date-quick"
+                 placeholder="ddmmyyyy" maxlength="10" inputmode="numeric"
+                 oninput="handleDateInput(this,'imp-nsx')"
+                 onblur="finalizeDateInput(this,'imp-nsx')">
+          <input type="date" id="imp-nsx" class="date-hidden">
+          <span id="imp-nsxPreview" class="date-preview"></span>
+        </div>
+      </div>
+
+      <!-- HSD block -->
+      <div id="imp-hsdBlock">
+        <label class="font-semibold">Hạn sử dụng (HSD)</label>
+        <div class="date-wrap" style="margin-bottom:12px;">
+          <input type="text" id="imp-hsdText" class="date-quick"
+                 placeholder="ddmmyyyy" maxlength="10" inputmode="numeric"
+                 oninput="handleDateInput(this,'imp-hsd')"
+                 onblur="finalizeDateInput(this,'imp-hsd')">
+          <input type="date" id="imp-hsd" class="date-hidden">
+          <span id="imp-hsdPreview" class="date-preview"></span>
+        </div>
+      </div>
+
+      <!-- Chỉ NSX + thời hạn -->
+      <div id="imp-periodBlock" class="hidden">
+        <label class="font-semibold">Thời hạn sử dụng (từ NSX)</label>
+        <div class="flex gap-2" style="margin-bottom:12px;">
+          <input type="number" id="imp-periodValue" class="border p-2 rounded w-full" placeholder="Ví dụ: 12" min="1" style="flex:1;">
+          <select id="imp-periodUnit" style="flex:1;">
+            <option value="day">Ngày</option>
+            <option value="month" selected>Tháng</option>
+            <option value="year">Năm</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Chỉ HSD + thời hạn (tính ngược NSX) -->
+      <div id="imp-hsdPeriodBlock" class="hidden">
+        <label class="font-semibold">Thời hạn sử dụng (tổng từ NSX)</label>
+        <div class="flex gap-2" style="margin-bottom:12px;">
+          <input type="number" id="imp-hsdPeriodValue" class="border p-2 rounded w-full" placeholder="Ví dụ: 12" min="1" style="flex:1;">
+          <select id="imp-hsdPeriodUnit" style="flex:1;">
+            <option value="day">Ngày</option>
+            <option value="month" selected>Tháng</option>
+            <option value="year">Năm</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 pt-2">
+        <button onclick="calcImport()" class="btn-primary" style="font-size:15px;">Kiểm tra</button>
+        <button onclick="resetImport()" class="btn-glass" style="font-size:15px;">Nhập lại</button>
+      </div>
+
+      <div id="imp-result" style="margin-top:14px;"></div>
+    </div>
+  </div>
+</div>
+
 <!-- iOS barcode capture fallback -->
 <input type="file" accept="image/*" capture="environment" id="iosBarcodeInput" style="display:none">
 <input type="file" accept="image/*" capture="environment" id="iosPrintBarcodeInput" style="display:none">
@@ -810,7 +889,7 @@ function isIOS(){ return /iPhone|iPad|iPod/i.test(navigator.userAgent); }
 function diffDays(a, b){ return Math.round((b - a) / 86400000); }
 
 /* ================= DOM REFS — khai báo trước, gán trong DOMContentLoaded ================= */
-let sidebar, overlay, mainApp, printApp;
+let sidebar, overlay, mainApp, printApp, importApp;
 
 /* ================= STATE ================= */
 let qr = null, qr2 = null;
@@ -902,12 +981,21 @@ function showMain(){
   stopAllScanner();
   mainApp.classList.remove("hidden");
   printApp.classList.add("hidden");
+  importApp.classList.add("hidden");
   toggleMenu();
 }
 function showPrint(){
   stopAllScanner();
   mainApp.classList.add("hidden");
   printApp.classList.remove("hidden");
+  importApp.classList.add("hidden");
+  toggleMenu();
+}
+function showImport(){
+  stopAllScanner();
+  mainApp.classList.add("hidden");
+  printApp.classList.add("hidden");
+  importApp.classList.remove("hidden");
   toggleMenu();
 }
 
@@ -1741,6 +1829,166 @@ function exportText(){
   showPopup("export");
 }
 
+
+/* ================= IMPORT CHECK (NHẬP HÀNG) ================= */
+function changeImportMode(){
+  const m = document.getElementById("importMode").value;
+  // ẩn tất cả block tùy chọn trước
+  ["imp-nsxBlock","imp-hsdBlock","imp-periodBlock","imp-hsdPeriodBlock"].forEach(id => {
+    document.getElementById(id).classList.add("hidden");
+  });
+  if(m === "full"){
+    document.getElementById("imp-nsxBlock").classList.remove("hidden");
+    document.getElementById("imp-hsdBlock").classList.remove("hidden");
+  }
+  if(m === "nsxPeriod"){
+    document.getElementById("imp-nsxBlock").classList.remove("hidden");
+    document.getElementById("imp-periodBlock").classList.remove("hidden");
+  }
+  if(m === "hsdOnly"){
+    document.getElementById("imp-hsdBlock").classList.remove("hidden");
+    document.getElementById("imp-hsdPeriodBlock").classList.remove("hidden");
+  }
+}
+
+function resetImport(){
+  document.getElementById("importMode").value = "full";
+  changeImportMode();
+  ["imp-nsxText","imp-hsdText","imp-periodValue","imp-hsdPeriodValue"].forEach(id => {
+    const el = document.getElementById(id);
+    if(el){ el.value = ""; el.classList.remove("ok","err"); }
+  });
+  ["imp-nsx","imp-hsd"].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.value = "";
+  });
+  ["imp-nsxPreview","imp-hsdPreview"].forEach(id => {
+    const el = document.getElementById(id);
+    if(el){ el.textContent = ""; el.className = "date-preview"; }
+  });
+  document.getElementById("imp-result").innerHTML = "";
+}
+
+function calcImport(){
+  const mode = document.getElementById("importMode").value;
+  const today = new Date(); today.setHours(0,0,0,0);
+  let nsxD, hsdD;
+
+  if(mode === "full"){
+    const nsxVal = document.getElementById("imp-nsx").value;
+    const hsdVal = document.getElementById("imp-hsd").value;
+    if(!nsxVal || !hsdVal){ showToast("⚠️ Nhập đủ NSX & HSD"); return; }
+    nsxD = new Date(nsxVal);
+    hsdD = new Date(hsdVal);
+  }
+  else if(mode === "nsxPeriod"){
+    const nsxVal = document.getElementById("imp-nsx").value;
+    const v = Number(document.getElementById("imp-periodValue").value);
+    const u = document.getElementById("imp-periodUnit").value;
+    if(!nsxVal){ showToast("⚠️ Nhập NSX"); return; }
+    if(!v || v <= 0){ showToast("⚠️ Nhập thời hạn sử dụng"); return; }
+    nsxD = new Date(nsxVal);
+    hsdD = addPeriod(nsxD, v, u);
+  }
+  else if(mode === "hsdOnly"){
+    const hsdVal = document.getElementById("imp-hsd").value;
+    const v = Number(document.getElementById("imp-hsdPeriodValue").value);
+    const u = document.getElementById("imp-hsdPeriodUnit").value;
+    if(!hsdVal){ showToast("⚠️ Nhập HSD"); return; }
+    if(!v || v <= 0){ showToast("⚠️ Nhập thời hạn sử dụng"); return; }
+    hsdD = new Date(hsdVal);
+    nsxD = addPeriod(hsdD, -v, u);
+  }
+
+  if(!nsxD || !hsdD || isNaN(nsxD) || isNaN(hsdD)){
+    showToast("⚠️ Ngày không hợp lệ"); return;
+  }
+  if(hsdD <= nsxD){
+    showToast("⚠️ HSD phải lớn hơn NSX"); return;
+  }
+
+  const totalDays   = Math.round((hsdD - nsxD) / 86400000);  // tổng HSD (ngày)
+  const elapsed     = Math.round((today - nsxD) / 86400000); // số ngày đã qua từ NSX
+  const remaining   = Math.round((hsdD - today) / 86400000); // số ngày còn lại tới HSD
+  const pctRemain   = remaining / totalDays;                  // % HSD còn lại
+  const minRemain70 = Math.ceil(totalDays * 0.70);            // số ngày tối thiểu còn lại để đạt 70%
+  const deadline70  = new Date(nsxD.getTime() + totalDays * 0.30 * 86400000); // deadline nhận hàng
+
+  const fmtDate = d => {
+    const dd = String(d.getDate()).padStart(2,"0");
+    const mm = String(d.getMonth()+1).padStart(2,"0");
+    const yy = d.getFullYear();
+    return `${dd}/${mm}/${yy}`;
+  };
+
+  const accepted = pctRemain >= 0.70;
+  const pctStr   = (pctRemain * 100).toFixed(1);
+
+  // Màu thanh progress
+  const barColor = accepted ? "var(--c-green)" : "var(--c-red2)";
+  const barPct   = Math.max(0, Math.min(100, pctRemain * 100)).toFixed(1);
+
+  const resultEl = document.getElementById("imp-result");
+  resultEl.innerHTML = `
+    <div style="border-radius:14px;overflow:hidden;border:1px solid ${accepted ? "rgba(52,211,153,.35)" : "rgba(248,113,113,.35)"};background:${accepted ? "rgba(52,211,153,.07)" : "rgba(248,113,113,.07)"};padding:18px;">
+
+      <!-- Kết luận lớn -->
+      <div style="text-align:center;margin-bottom:16px;">
+        <div style="font-size:36px;margin-bottom:6px;">${accepted ? "✅" : "❌"}</div>
+        <div style="font-size:18px;font-weight:700;color:${accepted ? "var(--c-green)" : "var(--c-red2)"};">
+          ${accepted ? "ĐỦ ĐIỀU KIỆN NHẬN" : "KHÔNG ĐỦ ĐIỀU KIỆN"}
+        </div>
+        <div style="font-size:13px;color:var(--t2);margin-top:4px;">
+          HSD còn lại <b style="color:#fff;">${pctStr}%</b>
+          ${accepted ? "≥ 70% → Hàng đạt chuẩn" : "< 70% → Từ chối nhận hàng"}
+        </div>
+      </div>
+
+      <!-- Thanh % còn lại -->
+      <div style="margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--t3);margin-bottom:5px;">
+          <span>0%</span><span style="color:${barColor};font-weight:600;">${pctStr}% còn lại</span><span>100%</span>
+        </div>
+        <div style="height:10px;border-radius:5px;background:rgba(255,255,255,.1);overflow:hidden;">
+          <div style="height:100%;border-radius:5px;background:${barColor};width:${barPct}%;transition:width .4s;"></div>
+        </div>
+        <!-- Vạch 70% -->
+        <div style="position:relative;height:18px;">
+          <div style="position:absolute;left:70%;transform:translateX(-50%);top:0;">
+            <div style="width:2px;height:10px;background:rgba(251,191,36,.8);margin:0 auto;"></div>
+            <div style="font-size:10px;color:rgba(251,191,36,.9);white-space:nowrap;transform:translateX(-50%);margin-left:1px;">70% min</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Thông tin chi tiết -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;">
+        <div style="background:rgba(255,255,255,.06);border-radius:10px;padding:12px;">
+          <div style="color:var(--t3);font-size:11px;margin-bottom:3px;">NSX</div>
+          <div style="font-weight:600;color:#fff;">${fmtDate(nsxD)}</div>
+        </div>
+        <div style="background:rgba(255,255,255,.06);border-radius:10px;padding:12px;">
+          <div style="color:var(--t3);font-size:11px;margin-bottom:3px;">HSD</div>
+          <div style="font-weight:600;color:#fff;">${fmtDate(hsdD)}</div>
+        </div>
+        <div style="background:rgba(255,255,255,.06);border-radius:10px;padding:12px;">
+          <div style="color:var(--t3);font-size:11px;margin-bottom:3px;">Tổng thời hạn</div>
+          <div style="font-weight:600;color:#fff;">${totalDays} ngày</div>
+        </div>
+        <div style="background:rgba(255,255,255,.06);border-radius:10px;padding:12px;">
+          <div style="color:var(--t3);font-size:11px;margin-bottom:3px;">Còn lại</div>
+          <div style="font-weight:600;color:${remaining < 0 ? "var(--c-red2)" : "#fff"};">${remaining < 0 ? "Đã hết hạn" : remaining + " ngày"}</div>
+        </div>
+        <div style="background:rgba(255,255,255,.06);border-radius:10px;padding:12px;grid-column:span 2;">
+          <div style="color:var(--t3);font-size:11px;margin-bottom:3px;">Hạn cuối nhận hàng (70% còn lại)</div>
+          <div style="font-weight:600;color:rgba(251,191,36,.9);">${fmtDate(deadline70)}</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:2px;">Tức là HSD phải còn ≥ ${minRemain70} ngày khi nhận</div>
+        </div>
+      </div>
+
+    </div>`;
+}
+
 /* ================= TOAST ================= */
 function showToast(message = "Đã xử lý", duration = 2500){
   const toast = document.getElementById("toastBox");
@@ -1900,10 +2148,11 @@ function bellClick(){
 /* ================= INIT ================= */
 document.addEventListener("DOMContentLoaded", () => {
   /* Gán DOM refs sau khi HTML đã sẵn sàng */
-  sidebar  = document.getElementById("sidebar");
-  overlay  = document.getElementById("overlay");
-  mainApp  = document.getElementById("mainApp");
-  printApp = document.getElementById("printApp");
+  sidebar   = document.getElementById("sidebar");
+  overlay   = document.getElementById("overlay");
+  mainApp   = document.getElementById("mainApp");
+  printApp  = document.getElementById("printApp");
+  importApp = document.getElementById("importApp");
 
   setupIOSCapture();
 

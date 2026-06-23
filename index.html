@@ -1084,33 +1084,54 @@ function setupIOSCapture(){
   });
 }
 
-const scanConfig = { fps: 10, qrbox: 250 };
+const scanConfig = {
+  fps: 15,
+  qrbox: { width: 280, height: 160 },
+  formatsToSupport: [
+    Html5QrcodeSupportedFormats.EAN_13,
+    Html5QrcodeSupportedFormats.EAN_8,
+    Html5QrcodeSupportedFormats.CODE_128,
+    Html5QrcodeSupportedFormats.CODE_39,
+    Html5QrcodeSupportedFormats.UPC_A,
+    Html5QrcodeSupportedFormats.UPC_E,
+    Html5QrcodeSupportedFormats.QR_CODE,
+  ]
+};
+
+function stopScan(){
+  if(qr){ try{ qr.stop().then(()=>{ qr.clear(); qr = null; }).catch(()=>{}); }catch(e){} qr = null; }
+  isScanning = false;
+  const r = document.getElementById("reader");
+  r.classList.add("hidden");
+  r.innerHTML = "";
+}
 
 async function startScan(){
-  if(isIOS()){
-    document.getElementById("iosBarcodeInput").click();
-    return;
-  }
   if(isScanning) return;
   isScanning = true;
   if(qr){ try{ await qr.stop(); await qr.clear(); }catch(e){} qr = null; }
   const r = document.getElementById("reader");
   r.innerHTML = `<div class="scan-frame"><div class="scan-line"></div></div>`;
   r.classList.remove("hidden");
-  qr = new Html5Qrcode("reader");
+  qr = new Html5Qrcode("reader", { formatsToSupport: scanConfig.formatsToSupport });
   qr.start(
     { facingMode: "environment" },
-    scanConfig,
+    { fps: scanConfig.fps, qrbox: scanConfig.qrbox },
     code => {
       document.getElementById("barcode").value = code;
-      qr.stop().then(()=>{ qr.clear(); qr = null; r.classList.add("hidden"); isScanning = false; }).catch(()=>{ isScanning = false; });
+      stopScan();
+      showToast("✅ " + code);
     },
-    () => {} // lỗi từng frame - bỏ qua
+    () => {}
   ).catch(err => {
     console.warn("Scan start error:", err);
     isScanning = false;
-    r.classList.add("hidden");
-    showToast("⚠️ Không thể mở camera");
+    r.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:14px;padding:20px;text-align:center;">
+        <div style="font-size:32px;">📵</div>
+        <div style="font-size:14px;color:rgba(255,255,255,.7);line-height:1.6;">Không thể mở camera.<br>Vui lòng cấp quyền camera<br>trong Cài đặt → Safari → Camera.</div>
+        <button onclick="stopScan()" class="btn-glass" style="min-height:44px;padding:0 24px;font-size:14px;">← Quay lại</button>
+      </div>`;
   });
 }
 
@@ -1782,17 +1803,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   setupIOSCapture();
 
-  /* ═══ iOS: tab tính date → chụp mã; tab in bảng giá → ẩn nút ═══ */
+  /* ═══ iOS: giữ nguyên nút quét (dùng stream camera như Android)
+             Tab in bảng giá vẫn ẩn ═══ */
   if(isIOS()){
-    // Tab tính date: đổi label nút, hiện hint hướng dẫn chụp
-    const scanBtn = document.getElementById("scanBtn");
-    if(scanBtn) scanBtn.textContent = "📷 Chụp mã";
-    const hint = document.getElementById("iosScanHint");
-    if(hint){ hint.classList.remove("hidden"); hint.style.display = "block"; }
-
-    // Tab in bảng giá: ẩn nút quét (không hỗ trợ trên iOS)
     const printScanBtn = document.getElementById("printScanBtn");
     if(printScanBtn) printScanBtn.style.display = "none";
+    // Ẩn hint chụp ảnh (không cần nữa vì dùng stream)
+    const hint = document.getElementById("iosScanHint");
+    if(hint) hint.style.display = "none";
   }
 
   autoCleanExpired();

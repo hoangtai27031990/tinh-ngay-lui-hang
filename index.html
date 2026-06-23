@@ -440,30 +440,72 @@ button:active{transform:scale(.97);opacity:.8}
 
 /* ── SCAN CAMERA ─────────────────────────────────── */
 #reader,#printReader{
-  position:relative;width:100%;height:270px;
+  position:relative;width:100%;height:300px;
   background:#000;border-radius:var(--radius);
   overflow:hidden;margin:8px 0;
   border:1px solid rgba(255,255,255,.15);
 }
-.scan-frame{
-  position:absolute;inset:14%;
-  border:1px solid rgba(255,255,255,.25);
-  border-radius:6px;z-index:10;
+
+/* Overlay tối che 2 bên, chỉ để hở vùng barcode */
+.scan-overlay{
+  position:absolute;inset:0;z-index:10;pointer-events:none;
 }
-.scan-frame::before,.scan-frame::after{
-  content:'';position:absolute;
-  width:22px;height:22px;
-  border-color:var(--red);border-style:solid;
+/* 4 dải tối: trên, dưới, trái, phải */
+.scan-mask-top,.scan-mask-bottom{
+  position:absolute;left:0;right:0;
+  background:rgba(0,0,0,.55);
 }
-.scan-frame::before{top:-1px;left:-1px;border-width:2px 0 0 2px;border-radius:3px 0 0 0}
-.scan-frame::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0;border-radius:0 0 3px 0}
+.scan-mask-left,.scan-mask-right{
+  position:absolute;
+  background:rgba(0,0,0,.55);
+}
+/* vùng sáng giữa = khung barcode */
+.scan-box{
+  position:absolute;
+  /* kích thước và vị trí tính bằng JS sau khi qrbox render */
+  border:none;
+  box-sizing:border-box;
+}
+/* 4 góc đỏ */
+.scan-corner{
+  position:absolute;width:26px;height:26px;
+  border-color:#c40018;border-style:solid;
+  border-radius:3px;
+}
+.sc-tl{top:-1px;left:-1px; border-width:3px 0 0 3px;border-radius:4px 0 0 4px}
+.sc-tr{top:-1px;right:-1px;border-width:3px 3px 0 0;border-radius:0 4px 0 0}
+.sc-bl{bottom:-1px;left:-1px;border-width:0 0 3px 3px;border-radius:0 0 0 4px}
+.sc-br{bottom:-1px;right:-1px;border-width:0 3px 3px 0;border-radius:0 0 4px 0}
+
+/* đường quét đỏ */
 .scan-line{
-  position:absolute;left:5%;width:90%;height:2px;
-  background:rgba(196,0,24,.8);
-  box-shadow:0 0 8px rgba(196,0,24,.6);
-  animation:scanMove 1.5s ease-in-out infinite;z-index:20;
+  position:absolute;left:3%;width:94%;height:2px;
+  background:linear-gradient(90deg,transparent,rgba(196,0,24,.9) 20%,#ff2040 50%,rgba(196,0,24,.9) 80%,transparent);
+  box-shadow:0 0 10px rgba(196,0,24,.7),0 0 20px rgba(196,0,24,.3);
+  animation:scanMove 1.6s ease-in-out infinite;z-index:20;
 }
-@keyframes scanMove{0%{top:20%}50%{top:65%}100%{top:20%}}
+@keyframes scanMove{0%{top:4px}50%{top:calc(100% - 4px)}100%{top:4px}}
+
+/* nhãn hướng dẫn bên dưới khung */
+.scan-label{
+  position:absolute;bottom:10px;left:0;right:0;
+  text-align:center;font-size:12px;font-weight:500;
+  color:rgba(255,255,255,.65);letter-spacing:.01em;z-index:15;
+  text-shadow:0 1px 4px rgba(0,0,0,.8);
+}
+/* nút quay lại nổi trên góc trên-trái */
+.scan-back-btn{
+  position:absolute;top:10px;left:10px;z-index:30;
+  background:rgba(0,0,0,.55);
+  -webkit-backdrop-filter:blur(10px);
+  backdrop-filter:blur(10px);
+  border:1px solid rgba(255,255,255,.25);
+  border-radius:10px;
+  color:#fff;font-size:13px;font-weight:600;
+  min-height:36px;padding:0 14px;
+  pointer-events:all;
+  display:flex;align-items:center;gap:5px;
+}
 
 /* ── CHAT BOX ────────────────────────────────────── */
 .chat-box{
@@ -1086,7 +1128,7 @@ function setupIOSCapture(){
 
 const scanConfig = {
   fps: 15,
-  qrbox: { width: 280, height: 160 },
+  qrbox: { width: 290, height: 130 },
   formatsToSupport: [
     Html5QrcodeSupportedFormats.EAN_13,
     Html5QrcodeSupportedFormats.EAN_8,
@@ -1097,6 +1139,66 @@ const scanConfig = {
     Html5QrcodeSupportedFormats.QR_CODE,
   ]
 };
+
+/* Vẽ overlay khung barcode lên trên video đang stream */
+function buildScanOverlay(readerId, backFn){
+  const root = document.getElementById(readerId);
+  if(!root) return;
+
+  // Chờ html5qrcode tạo xong video element (~300ms)
+  const tryBuild = (attempts) => {
+    const video = root.querySelector("video");
+    // Tìm vùng qrbox mà html5qrcode tự vẽ (nó tạo 1 region highlight)
+    const qrRegion = root.querySelector("#qr-shaded-region") || root.querySelector("[id$=shaded-region]");
+
+    if(!video && attempts > 0){
+      setTimeout(() => tryBuild(attempts - 1), 200);
+      return;
+    }
+
+    // Tính toán vị trí khung dựa trên kích thước container
+    const rw = root.offsetWidth  || 350;
+    const rh = root.offsetHeight || 300;
+    const bw = Math.min(290, rw - 32);  // chiều rộng khung barcode
+    const bh = 130;                      // chiều cao khung barcode
+    const bx = (rw - bw) / 2;           // offset X
+    const by = (rh - bh) / 2;           // offset Y
+
+    // Xóa overlay cũ nếu có
+    const old = root.querySelector(".scan-overlay");
+    if(old) old.remove();
+
+    const ov = document.createElement("div");
+    ov.className = "scan-overlay";
+    ov.innerHTML = `
+      <!-- mặt nạ tối 4 phía -->
+      <div class="scan-mask-top"    style="top:0;height:${by}px;"></div>
+      <div class="scan-mask-bottom" style="bottom:0;height:${rh-by-bh}px;"></div>
+      <div class="scan-mask-left"   style="top:${by}px;left:0;width:${bx}px;height:${bh}px;"></div>
+      <div class="scan-mask-right"  style="top:${by}px;right:0;width:${rw-bx-bw}px;height:${bh}px;"></div>
+      <!-- khung barcode -->
+      <div class="scan-box" style="left:${bx}px;top:${by}px;width:${bw}px;height:${bh}px;">
+        <div class="scan-corner sc-tl"></div>
+        <div class="scan-corner sc-tr"></div>
+        <div class="scan-corner sc-bl"></div>
+        <div class="scan-corner sc-br"></div>
+        <div class="scan-line"></div>
+      </div>
+      <!-- nhãn -->
+      <div class="scan-label">Căn mã vạch vào khung · Giữ thẳng · Đủ sáng</div>
+      <!-- nút quay lại -->
+      <button class="scan-back-btn" onclick="${backFn}()">← Quay lại</button>
+    `;
+    root.appendChild(ov);
+
+    // Ẩn overlay mặc định của html5qrcode (xấu, che lên overlay của mình)
+    if(qrRegion) qrRegion.style.display = "none";
+    // Ẩn border mặc định html5qrcode vẽ lên video
+    const canvas = root.querySelector("canvas");
+    if(canvas) canvas.style.display = "none";
+  };
+  setTimeout(() => tryBuild(8), 250);
+}
 
 function stopScan(){
   if(qr){ try{ qr.stop().then(()=>{ qr.clear(); qr = null; }).catch(()=>{}); }catch(e){} qr = null; }
@@ -1111,7 +1213,7 @@ async function startScan(){
   isScanning = true;
   if(qr){ try{ await qr.stop(); await qr.clear(); }catch(e){} qr = null; }
   const r = document.getElementById("reader");
-  r.innerHTML = `<div class="scan-frame"><div class="scan-line"></div></div>`;
+  r.innerHTML = "";
   r.classList.remove("hidden");
   qr = new Html5Qrcode("reader", { formatsToSupport: scanConfig.formatsToSupport });
   qr.start(
@@ -1123,7 +1225,9 @@ async function startScan(){
       showToast("✅ " + code);
     },
     () => {}
-  ).catch(err => {
+  ).then(() => {
+    buildScanOverlay("reader", "stopScan");
+  }).catch(err => {
     console.warn("Scan start error:", err);
     isScanning = false;
     r.innerHTML = `

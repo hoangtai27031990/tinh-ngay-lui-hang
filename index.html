@@ -76,7 +76,7 @@ body{
   font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text',sans-serif;
   -webkit-font-smoothing:antialiased;
   color:var(--t1);
-  padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));
+  padding-bottom:calc(80px + env(safe-area-inset-bottom,0px));
   background:
     radial-gradient(ellipse 70% 45% at 15% 8%, rgba(180,0,20,.28) 0%, transparent 60%),
     radial-gradient(ellipse 50% 40% at 88% 85%, rgba(100,0,20,.2) 0%, transparent 55%),
@@ -526,6 +526,60 @@ button:active{transform:scale(.97);opacity:.8}
 }
 
 #checkDateList{max-height:65vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+
+/* ── BOTTOM TAB BAR ──────────────────────────────── */
+#bottomTabBar{
+  position:fixed;
+  bottom:0;left:50%;
+  transform:translateX(-50%);
+  width:100%;max-width:576px;
+  z-index:850;
+  padding:0 12px;
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  pointer-events:none;
+}
+.tab-bar-inner{
+  display:flex;
+  gap:8px;
+  margin-bottom:12px;
+  background:rgba(15,0,5,.72);
+  -webkit-backdrop-filter:saturate(200%) blur(32px);
+  backdrop-filter:saturate(200%) blur(32px);
+  border:1px solid rgba(255,255,255,.14);
+  border-top-color:rgba(255,255,255,.3);
+  border-radius:20px;
+  padding:6px;
+  pointer-events:all;
+  box-shadow:0 8px 32px rgba(0,0,0,.45),0 2px 8px rgba(0,0,0,.3);
+}
+.tab-btn{
+  flex:1;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;
+  min-height:52px;
+  border-radius:14px;
+  background:transparent;
+  border:none;
+  color:rgba(255,255,255,.45);
+  font-size:11px;font-weight:600;
+  letter-spacing:.01em;
+  cursor:pointer;
+  transition:background .18s,color .18s,transform .1s;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+  padding:0;
+}
+.tab-btn:active{transform:scale(.93)}
+.tab-btn .tab-icon{
+  font-size:22px;
+  line-height:1;
+  transition:transform .18s;
+}
+.tab-btn.tab-active{
+  background:rgba(255,255,255,.13);
+  color:#fff;
+}
+.tab-btn.tab-active .tab-icon{transform:scale(1.12)}
 </style>
 </head>
 
@@ -579,6 +633,24 @@ button:active{transform:scale(.97);opacity:.8}
   <button onclick="resetNotifAndAsk();toggleMenu()" style="color:rgba(251,191,36,.9);font-size:14px;">🔔&nbsp; Bật lại thông báo</button>
 </div>
 <div id="overlay" onclick="toggleMenu()"></div>
+
+<!-- BOTTOM TAB BAR -->
+<div id="bottomTabBar">
+  <div class="tab-bar-inner">
+    <button class="tab-btn tab-active" id="tab-main" onclick="showMain()">
+      <span class="tab-icon">📦</span>
+      <span>Quản lý HSD</span>
+    </button>
+    <button class="tab-btn" id="tab-import" onclick="showImport()">
+      <span class="tab-icon">📋</span>
+      <span>Nhập hàng</span>
+    </button>
+    <button class="tab-btn" id="tab-print" onclick="showPrint()">
+      <span class="tab-icon">🖨</span>
+      <span>Bảng giá</span>
+    </button>
+  </div>
+</div>
 
 <!-- HEADER -->
 <div id="app-header">
@@ -977,11 +1049,20 @@ function stopAllScanner(){
   isScanning = false;
 }
 
+function setActiveTab(id){
+  ["tab-main","tab-import","tab-print"].forEach(t => {
+    const el = document.getElementById(t);
+    if(el) el.classList.remove("tab-active");
+  });
+  const active = document.getElementById(id);
+  if(active) active.classList.add("tab-active");
+}
 function showMain(){
   stopAllScanner();
   mainApp.classList.remove("hidden");
   printApp.classList.add("hidden");
   importApp.classList.add("hidden");
+  setActiveTab("tab-main");
   toggleMenu();
 }
 function showPrint(){
@@ -989,6 +1070,7 @@ function showPrint(){
   mainApp.classList.add("hidden");
   printApp.classList.remove("hidden");
   importApp.classList.add("hidden");
+  setActiveTab("tab-print");
   toggleMenu();
 }
 function showImport(){
@@ -996,6 +1078,7 @@ function showImport(){
   mainApp.classList.add("hidden");
   printApp.classList.add("hidden");
   importApp.classList.remove("hidden");
+  setActiveTab("tab-import");
   toggleMenu();
 }
 

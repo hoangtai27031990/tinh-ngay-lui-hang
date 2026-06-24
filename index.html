@@ -625,9 +625,9 @@ button:active{transform:scale(.97);opacity:.8}
     <div style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);">Saigon Co.op</div>
     <div style="font-size:20px;font-weight:700;color:var(--t1);margin-top:3px;">Quản lý HSD</div>
   </div>
-  <button onclick="showMain()">📦&nbsp; Quản lý HSD</button>
-  <button onclick="showImport()">📋&nbsp; Kiểm tra nhập hàng</button>
-  <button onclick="showPrint()">🖨&nbsp; In bảng giá quầy</button>
+  <button onclick="showMain(true)">📦&nbsp; Quản lý HSD</button>
+  <button onclick="showImport(true)">📋&nbsp; Kiểm tra nhập hàng</button>
+  <button onclick="showPrint(true)">🖨&nbsp; In bảng giá quầy</button>
   <div style="height:1px;background:rgba(255,255,255,.07);"></div>
   <button onclick="testNotification();toggleMenu()" style="color:rgba(96,165,250,.9);font-size:14px;">📨&nbsp; Test thông báo</button>
   <button onclick="resetNotifAndAsk();toggleMenu()" style="color:rgba(251,191,36,.9);font-size:14px;">🔔&nbsp; Bật lại thông báo</button>
@@ -1057,29 +1057,29 @@ function setActiveTab(id){
   const active = document.getElementById(id);
   if(active) active.classList.add("tab-active");
 }
-function showMain(){
+function showMain(fromSidebar){
   stopAllScanner();
   mainApp.classList.remove("hidden");
   printApp.classList.add("hidden");
   importApp.classList.add("hidden");
   setActiveTab("tab-main");
-  toggleMenu();
+  if(fromSidebar) toggleMenu();
 }
-function showPrint(){
+function showPrint(fromSidebar){
   stopAllScanner();
   mainApp.classList.add("hidden");
   printApp.classList.remove("hidden");
   importApp.classList.add("hidden");
   setActiveTab("tab-print");
-  toggleMenu();
+  if(fromSidebar) toggleMenu();
 }
-function showImport(){
+function showImport(fromSidebar){
   stopAllScanner();
   mainApp.classList.add("hidden");
   printApp.classList.add("hidden");
   importApp.classList.remove("hidden");
   setActiveTab("tab-import");
-  toggleMenu();
+  if(fromSidebar) toggleMenu();
 }
 
 function changeCalcMode(){
